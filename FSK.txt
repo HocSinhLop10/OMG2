@@ -510,7 +510,7 @@ end)
 
     Tabs.Main:AddSection("↳ Chance")
 
--- === Auto Aim Shoot (Fix) ===
+-- === Auto Aim Shoot (Safe / Anti-Crash) ===
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -519,40 +519,40 @@ local LocalPlayer = Players.LocalPlayer
 local aimDuration = 1.7
 local aimTargets = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
 local trackedAnimations = {
-    ["103601716322988"] = true,
-    ["133491532453922"] = true,
-    ["86371356500204"] = true,
-    ["76649505662612"] = true,
-    ["81698196845041"] = true
+    ["103601716322988"]=true,
+    ["133491532453922"]=true,
+    ["86371356500204"]=true,
+    ["76649505662612"]=true,
+    ["81698196845041"]=true
 }
 
 -- State
 local active = false
 local Humanoid, HRP = nil, nil
-local lastTriggerTime = 0
-local aiming = false
+local lastTriggerTime, aiming = 0, false
 local originalWS, originalJP, originalAutoRotate
 local predictionValue = 4
-local aimConn -- connection loop
+local aimConn
 
 -- Cho phép GUI thay đổi giá trị prediction
-function setPredictionValue(val)
-    predictionValue = val
+local function setPredictionValue(val)
+    predictionValue = tonumber(val) or predictionValue
 end
 
--- Setup Character
+-- Setup character safely
 local function setupCharacter(char)
-    Humanoid = char:WaitForChild("Humanoid")
-    HRP = char:WaitForChild("HumanoidRootPart")
+    pcall(function()
+        Humanoid = char:WaitForChild("Humanoid", 5)
+        HRP = char:WaitForChild("HumanoidRootPart", 5)
+    end)
 end
-if LocalPlayer.Character then
-    setupCharacter(LocalPlayer.Character)
-end
+if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- Target Check
 local function getValidTarget()
-    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    local killersFolder = workspace:FindFirstChild("Players")
+    killersFolder = killersFolder and killersFolder:FindFirstChild("Killers")
     if killersFolder then
         for _, name in ipairs(aimTargets) do
             local target = killersFolder:FindFirstChild(name)
@@ -568,9 +568,11 @@ end
 local function getPlayingAnimationIds()
     local ids = {}
     if Humanoid then
-        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation and track.Animation.AnimationId then
-                local id = track.Animation.AnimationId:match("%d+")
+        local ok, tracks = pcall(function() return Humanoid:GetPlayingAnimationTracks() end)
+        if ok and tracks then
+            for _, track in ipairs(tracks) do
+                local id = track.Animation and track.Animation.AnimationId
+                id = id and id:match("%d+")
                 if id then ids[id] = true end
             end
         end
@@ -584,122 +586,157 @@ local function startAutoAim()
     active = true
 
     aimConn = RunService.RenderStepped:Connect(function()
-        if not active or not Humanoid or not HRP then return end
+        local ok, err = pcall(function()
+            if not active or not Humanoid or not HRP then return end
 
-        local playing = getPlayingAnimationIds()
-        local triggered = false
-        for id in pairs(trackedAnimations) do
-            if playing[id] then
-                triggered = true
-                break
+            -- Trigger khi animation match
+            local playing = getPlayingAnimationIds()
+            local triggered = false
+            for id in pairs(trackedAnimations) do
+                if playing[id] then triggered = true break end
             end
-        end
-
-        if triggered then
-            lastTriggerTime = os.clock()
-            aiming = true
-        end
-
-        if aiming and os.clock() - lastTriggerTime <= aimDuration then
-            if not originalWS then
-                originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+            if triggered then
+                lastTriggerTime = os.clock()
+                aiming = true
             end
 
-            Humanoid.AutoRotate = false
-            HRP.AssemblyAngularVelocity = Vector3.zero
+            -- Thực hiện aim
+            if aiming and os.clock() - lastTriggerTime <= aimDuration then
+                if not originalWS then
+                    originalWS, originalJP, originalAutoRotate =
+                        Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                end
+                Humanoid.AutoRotate = false
+                HRP.AssemblyAngularVelocity = Vector3.zero
 
-            local targetHRP = getValidTarget()
-            if targetHRP then
-                local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
-                local direction = (predictedPos - HRP.Position).Unit
-                local yRot = math.atan2(-direction.X, -direction.Z)
-                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                local targetHRP = getValidTarget()
+                if targetHRP then
+                    local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
+                    local dir = (predictedPos - HRP.Position).Unit
+                    local yRot = math.atan2(-dir.X, -dir.Z)
+                    HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                end
+            elseif aiming then
+                aiming = false
+                if originalWS and originalJP and originalAutoRotate ~= nil then
+                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate =
+                        originalWS, originalJP, originalAutoRotate
+                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                end
             end
-        elseif aiming then
-            aiming = false
-            if originalWS and originalJP and originalAutoRotate ~= nil then
-                Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
-                originalWS, originalJP, originalAutoRotate = nil, nil, nil
-            end
+        end)
+        if not ok then
+            warn("[AutoAim] Loop error:", err)
         end
     end)
 end
 
 -- 🛑 Stop Auto Aim
 local function stopAutoAim()
-    active = false
-    aiming = false
+    active, aiming = false, false
     if aimConn then
         aimConn:Disconnect()
         aimConn = nil
     end
+    -- Restore nếu đang giữ state
+    if Humanoid and originalWS then
+        Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate =
+            originalWS, originalJP, originalAutoRotate
+    end
+    originalWS, originalJP, originalAutoRotate = nil, nil, nil
 end
 
--- === GUI Bindings ===
-Tabs.Main:AddSlider("PredictionSlider", {
-    Title = "Prediction",
-    Default = 4,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-}):OnChanged(function(val)
-    setPredictionValue(val)
-end)
-
-Tabs.Main:AddToggle("AutoAimToggle", {
-    Title = "Auto Aim Shoot",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startAutoAim()
-    else
-        stopAutoAim()
+-- === GUI Bindings (safe) ===
+task.spawn(function()
+    local start = os.clock()
+    repeat task.wait(0.05) until (Tabs and Tabs.Main) or (os.clock()-start > 5)
+    if not (Tabs and Tabs.Main) then
+        warn("[AutoAim] Tabs.Main not ready; skipping UI")
+        return
     end
+
+    pcall(function()
+        Tabs.Main:AddSlider("PredictionSlider", {
+            Title = "Prediction",
+            Default = 4, Min = 0, Max = 10, Rounding = 1,
+        }):OnChanged(function(val)
+            local ok,err = pcall(function() setPredictionValue(val) end)
+            if not ok then warn("[AutoAim] Slider error:", err) end
+        end)
+
+        Tabs.Main:AddToggle("AutoAimToggle", {
+            Title = "Auto Aim Shoot",
+            Default = false,
+        }):OnChanged(function(enabled)
+            local ok,err = pcall(function()
+                if enabled then startAutoAim() else stopAutoAim() end
+            end)
+            if not ok then warn("[AutoAim] Toggle error:", err) end
+        end)
+    end)
 end)
 
 
     Tabs.Main:AddSection("↳ Two Time")
 
+-- === Auto Backstab (Safe) ===
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
 
 -- Vars
-local enabled = false
-local cooldown = false
+local enabled, cooldown = false, false
 local lastTarget = nil
-local maxDistance = 5 -- Khoảng cách mặc định
-local daggerRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+local maxDistance = 5
+local daggerRemote
+local killersFolder
 local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
-local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
--- Toggle
-local BackstabToggle = Tabs.Main:AddToggle("BackstabToggle", {
-    Title = "Auto Backstab",
-    Default = false
-})
-
-BackstabToggle:OnChanged(function(Value)
-    enabled = Value
+-- Safe fetch
+pcall(function()
+    daggerRemote = ReplicatedStorage:FindFirstChild("Modules")
+    daggerRemote = daggerRemote and daggerRemote:FindFirstChild("Network")
+    daggerRemote = daggerRemote and daggerRemote:FindFirstChild("RemoteEvent")
 end)
 
--- Slider cho khoảng cách
-local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
-    Title = "Distance",
-    Min = 1,
-    Max = 10,
-    Default = 5,
-    Rounding = 1,
-    ValueName = "studs"
-})
+pcall(function()
+    local playersFolder = workspace:FindFirstChild("Players")
+    killersFolder = playersFolder and playersFolder:FindFirstChild("Killers")
+end)
 
-DistanceSlider:OnChanged(function(Value)
-    maxDistance = Value
+-- GUI
+task.spawn(function()
+    repeat task.wait(0.05) until (Tabs and Tabs.Main)
+
+    if not (Tabs and Tabs.Main) then
+        warn("[Backstab] Tabs.Main not ready, skip UI")
+        return
+    end
+
+    local BackstabToggle = Tabs.Main:AddToggle("BackstabToggle", {
+        Title = "Auto Backstab",
+        Default = false
+    })
+    BackstabToggle:OnChanged(function(val)
+        local ok,err = pcall(function() enabled = val end)
+        if not ok then warn("[Backstab] Toggle error:", err) end
+    end)
+
+    local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
+        Title = "Distance",
+        Min = 1, Max = 10, Default = 5, Rounding = 1,
+        ValueName = "studs"
+    })
+    DistanceSlider:OnChanged(function(val)
+        local ok,err = pcall(function() maxDistance = val end)
+        if not ok then warn("[Backstab] Slider error:", err) end
+    end)
 end)
 
 -- Helper
 local function isBehindTarget(hrp, targetHRP)
+    if not (hrp and targetHRP) then return false end
     local direction = -targetHRP.CFrame.LookVector
     local toPlayer = (hrp.Position - targetHRP.Position)
     local distance = toPlayer.Magnitude
@@ -709,26 +746,32 @@ end
 
 -- Main loop
 RunService.Heartbeat:Connect(function()
-    if not enabled or cooldown then return end
+    local ok,err = pcall(function()
+        if not enabled or cooldown then return end
+        if not killersFolder or not daggerRemote then return end
 
-    local char = lp.Character
-    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-    local hrp = char.HumanoidRootPart
+        local char = lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-    for _, name in ipairs(killerNames) do
-        local killer = killersFolder:FindFirstChild(name)
-        if killer and killer:FindFirstChild("HumanoidRootPart") then
-            local kHRP = killer.HumanoidRootPart
+        for _, name in ipairs(killerNames) do
+            local killer = killersFolder:FindFirstChild(name)
+            local kHRP = killer and killer:FindFirstChild("HumanoidRootPart")
 
-            if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
-                cooldown = true
-                lastTarget = killer
+            if kHRP and isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
+                cooldown, lastTarget = true, killer
 
+                -- teleport ra sau lưng
                 local behindPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
                 hrp.CFrame = CFrame.new(behindPos, behindPos + kHRP.CFrame.LookVector)
 
-                daggerRemote:FireServer("UseActorAbility", "Dagger")
+                if daggerRemote then
+                    pcall(function()
+                        daggerRemote:FireServer("UseActorAbility", "Dagger")
+                    end)
+                end
 
+                -- giữ 0.7s rồi cooldown 2s
                 local start = tick()
                 local connection
                 connection = RunService.Heartbeat:Connect(function()
@@ -747,41 +790,30 @@ RunService.Heartbeat:Connect(function()
                     local behind = kHRP.Position - (kHRP.CFrame.LookVector * 2)
                     hrp.CFrame = CFrame.new(behind, behind + kHRP.CFrame.LookVector)
                 end)
-
                 break
             end
         end
-    end
+    end)
+    if not ok then warn("[Backstab] Loop error:", err) end
 end)
 
 
 
     Tabs.Main:AddSection("↳ Guest1337")
 
-
+-- === Auto Block V2 (hardened, anti-crash) ===
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-
 local localPlayer = Players.LocalPlayer
 
--- ✅ Animation IDs
+-- Whitelist animation IDs
 local animationIds = {
-    ["126830014841198"] = true,
-    ["126355327951215"] = true,
-    ["121086746534252"] = true,
-    ["18885909645"]     = true,
-    ["98456918873918"]  = true,
-    ["105458270463374"] = true,
-    ["83829782357897"]  = true,
-    ["125403313786645"] = true,
-    ["118298475669935"] = true,
-    ["82113744478546"]  = true,
-    ["70371667919898"]  = true,
-    ["99135633258223"]  = true,
-    ["97167027849946"]  = true,
-    ["109230267448394"] = true,
-    ["139835501033932"] = true,
-    ["126896426760253"] = true,
+    ["126830014841198"]=true,["126355327951215"]=true,["121086746534252"]=true,
+    ["18885909645"]=true,["98456918873918"]=true,["105458270463374"]=true,
+    ["83829782357897"]=true,["125403313786645"]=true,["118298475669935"]=true,
+    ["82113744478546"]=true,["70371667919898"]=true,["99135633258223"]=true,
+    ["97167027849946"]=true,["109230267448394"]=true,["139835501033932"]=true,
+    ["126896426760253"]=true
 }
 
 local toggleOn = false
@@ -791,43 +823,72 @@ local detectionRange = 18
 local clickedTracks = {}
 local tracksStartedInRange = {}
 
--- ✅ Click the Block ImageButton (mobile-safe)
-local function clickBlockButton()
-    local gui = localPlayer:FindFirstChild("PlayerGui")
+-- Debounce để tránh spam block
+local lastBlockAt = 0
+local blockCooldown = 0.08
+
+-- Click Block an toàn trên mọi executor
+local function safeClickBlock()
+    local now = os.clock()
+    if now - lastBlockAt < blockCooldown then return end
+
+    local gui = localPlayer and localPlayer:FindFirstChild("PlayerGui")
     if not gui then return end
-
     local mainUI = gui:FindFirstChild("MainUI")
-    local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
-    local blockButton = container and container:FindFirstChild("Block")
+    if not mainUI then return end
+    local container = mainUI:FindFirstChild("AbilityContainer")
+    if not container then return end
+    local blockButton = container:FindFirstChild("Block")
+    if not (blockButton and blockButton:IsA("GuiButton") and blockButton.Visible) then return end
 
-    if blockButton and blockButton:IsA("ImageButton") and blockButton.Visible then
-        local success = false
-        for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
-            pcall(function()
-                conn:Fire()
-                success = true
-            end)
+    local ok = false
+    -- 1) getconnections nếu có
+    local suc,_ = pcall(function()
+        if typeof(getconnections) == "function" then
+            local conns = getconnections(blockButton.MouseButton1Click)
+            for _,c in ipairs(conns) do
+                pcall(function() c:Fire() ok = true end)
+            end
         end
-        if not success then
-            pcall(function()
-                blockButton:Activate()
-            end)
-        end
+    end)
+
+    -- 2) Sự kiện trực tiếp
+    if not ok then
+        pcall(function()
+            blockButton:Activate()
+            ok = true
+        end)
     end
+    if not ok then
+        pcall(function()
+            blockButton:ReleaseMouse() -- một số executor hỗ trợ
+            ok = true
+        end)
+    end
+
+    if ok then lastBlockAt = now end
 end
 
--- 🔎 Detect new animations only
-local function detectNewAnimations(humanoid, playerName, dist)
-    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-        local anim = track.Animation
-        if anim and anim.AnimationId then
-            local id = string.match(anim.AnimationId, "%d+")
+-- Chỉ đánh dấu track mới, có reset khi dừng
+local function detectNewAnimations(humanoid, dist)
+    if not (humanoid and humanoid:IsDescendantOf(game)) then return end
+    local ok, tracks = pcall(function()
+        return humanoid:GetPlayingAnimationTracks()
+    end)
+    if not ok or not tracks then return end
+
+    for _, track in ipairs(tracks) do
+        local anim = track and track.Animation
+        local animId = anim and anim.AnimationId
+        if animId then
+            local id = animId:match("%d+")
             if id and animationIds[id] and not clickedTracks[track] then
                 clickedTracks[track] = true
-                tracksStartedInRange[track] = dist <= detectionRange
+                tracksStartedInRange[track] = (dist or math.huge) <= detectionRange
 
                 task.spawn(function()
-                    track.Stopped:Wait()
+                    local sOk = pcall(function() track.Stopped:Wait() end)
+                    -- Dù có lỗi cũng dọn state
                     clickedTracks[track] = nil
                     tracksStartedInRange[track] = nil
                 end)
@@ -836,105 +897,142 @@ local function detectNewAnimations(humanoid, playerName, dist)
     end
 end
 
--- 📝 Persistent toggle & range state
-local function getBoolFlag(name)
-    local flag = localPlayer:FindFirstChild(name)
+-- Flags persist
+local function getBoolFlag(name, default)
+    local holder = localPlayer
+    if not holder then return {Value = default or false} end
+    local flag = holder:FindFirstChild(name)
     if not flag then
         flag = Instance.new("BoolValue")
         flag.Name = name
-        flag.Value = false
-        flag.Parent = localPlayer
+        flag.Value = default or false
+        flag.Parent = holder
     end
     return flag
 end
 
-local function getNumberFlag(name)
-    local flag = localPlayer:FindFirstChild(name)
+local function getNumberFlag(name, default)
+    local holder = localPlayer
+    if not holder then return {Value = default or 18} end
+    local flag = holder:FindFirstChild(name)
     if not flag then
         flag = Instance.new("NumberValue")
         flag.Name = name
-        flag.Value = 18
-        flag.Parent = localPlayer
+        flag.Value = default or 18
+        flag.Parent = holder
     end
     return flag
 end
 
-local toggleFlag = getBoolFlag("AutoBlockToggle")
-local strictFlag = getBoolFlag("AutoBlockStrictRange")
-local rangeFlag = getNumberFlag("AutoBlockRange")
+local toggleFlag = getBoolFlag("AutoBlockToggle", false)
+local strictFlag = getBoolFlag("AutoBlockStrictRange", false)
+local rangeFlag  = getNumberFlag("AutoBlockRange", 18)
 
-toggleOn = toggleFlag.Value
-strictRangeOn = strictFlag.Value
+toggleOn       = toggleFlag.Value
+strictRangeOn  = strictFlag.Value
 detectionRange = rangeFlag.Value
 
--- 🕹 GUI using Fluent (fixed IDs)
-Tabs.Main:AddToggle("AutoBlockV2", {
-    Title = "Auto Block",
-    Default = toggleOn,
-}):OnChanged(function(state)
-    local ok, err = pcall(function()
-        toggleOn = state
-        toggleFlag.Value = state
+-- Đợi Tabs.Main sẵn sàng rồi mới add UI (tránh nil)
+task.spawn(function()
+    local start = os.clock()
+    local TabsRef
+    repeat
+        local ok,_ = pcall(function()
+            -- Tùy framework, bạn có thể thay lấy từ _G/Tabs có sẵn
+            TabsRef = Tabs and Tabs.Main
+        end)
+        task.wait(0.05)
+    until TabsRef or (os.clock() - start > 5)
+
+    if not (Tabs and Tabs.Main) then
+        warn("[AutoBlock] Tabs.Main not ready; skipping UI creation.")
+        return
+    end
+
+    -- UI
+    pcall(function()
+        Tabs.Main:AddToggle("AutoBlockV2", {
+            Title = "Auto Block",
+            Default = toggleOn,
+        }):OnChanged(function(state)
+            local ok2,err2 = pcall(function()
+                toggleOn = state
+                if toggleFlag then toggleFlag.Value = state end
+            end)
+            if not ok2 then warn("[AutoBlock] Toggle error:", err2) end
+        end)
+
+        Tabs.Main:AddToggle("StrictRangeCheck", {
+            Title = "Auto Check",
+            Default = strictRangeOn,
+        }):OnChanged(function(state)
+            local ok2,err2 = pcall(function()
+                strictRangeOn = state
+                if strictFlag then strictFlag.Value = state end
+            end)
+            if not ok2 then warn("[AutoBlock] StrictRange error:", err2) end
+        end)
+
+        Tabs.Main:AddSlider("RangeCheckSlider", {
+            Title = "Range Check",
+            Min = 1, Max = 100, Default = detectionRange, Rounding = 1,
+        }):OnChanged(function(val)
+            local ok2,err2 = pcall(function()
+                detectionRange = tonumber(val) or detectionRange
+                if rangeFlag then rangeFlag.Value = detectionRange end
+            end)
+            if not ok2 then warn("[AutoBlock] Range slider error:", err2) end
+        end)
     end)
-    if not ok then warn("[AutoBlock] Error:", err) end
 end)
 
-Tabs.Main:AddToggle("StrictRangeCheck", {
-    Title = "Auto Check",
-    Default = strictRangeOn,
-}):OnChanged(function(state)
-    local ok, err = pcall(function()
-        strictRangeOn = state
-        strictFlag.Value = state
-    end)
-    if not ok then warn("[StrictRange] Error:", err) end
-end)
-
-Tabs.Main:AddSlider("RangeCheckSlider", {
-    Title = "Range Check",
-    Min = 1,
-    Max = 100,
-    Default = detectionRange,
-    Rounding = 1,
-}):OnChanged(function(value)
-    local ok, err = pcall(function()
-        detectionRange = value
-        rangeFlag.Value = value
-    end)
-    if not ok then warn("[RangeCheck] Error:", err) end
-end)
-
--- 🕹 Main loop
+-- Main loop an toàn
 RunService.Heartbeat:Connect(function()
-    if not toggleOn then return end
+    local ok, err = pcall(function()
+        if not toggleOn then return end
 
-    local myChar = localPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
+        local myChar = localPlayer and localPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
 
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if otherPlayer ~= localPlayer and otherPlayer.Character then
-            local root = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if root and humanoid then
-                local dist = (root.Position - myRoot.Position).Magnitude
-                if dist <= detectionRange then
-                    detectNewAnimations(humanoid, otherPlayer.Name, dist)
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= localPlayer then
+                local char = otherPlayer.Character
+                if char then
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    if root and humanoid and humanoid.Health > 0 then
+                        local dist = (root.Position - myRoot.Position).Magnitude
+                        -- Quét track mới trước
+                        detectNewAnimations(humanoid, dist)
 
-                    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-                        if clickedTracks[track] then
-                            if strictRangeOn and not tracksStartedInRange[track] then
-                                continue
+                        -- Nếu trong range, và có track match thì block
+                        if dist <= detectionRange then
+                            local okTracks, tracks = pcall(function()
+                                return humanoid:GetPlayingAnimationTracks()
+                            end)
+                            if okTracks and tracks then
+                                for _, track in ipairs(tracks) do
+                                    if clickedTracks[track] then
+                                        if strictRangeOn and not tracksStartedInRange[track] then
+                                            -- track bắt đầu ngoài range -> bỏ qua
+                                        else
+                                            safeClickBlock()
+                                        end
+                                    end
+                                end
                             end
-                            clickBlockButton()
                         end
                     end
                 end
             end
         end
+    end)
+    if not ok then
+        warn("[AutoBlock] Heartbeat error:", err)
+        -- KHÔNG return hard; tiếp tục vòng sau để không “giết” GUI
     end
 end)
-
 
 
 -- Tabs.Player
@@ -1908,49 +2006,54 @@ end
 
 
 
+local RunService = game:GetService("RunService")
 
 Tabs.Misc:AddToggle("AntiReportScreenshot", {
     Title = "Anti-Ban [100%]",
     Default = true,
     Callback = function(state)
-        -- Dùng biến chung để quản lý vòng lặp
-        if not shared.AntiBanLoop then
-            shared.AntiBanLoop = {running = false, hooked = false}
-        end
+        shared.AntiBanLoop = shared.AntiBanLoop or {running = false, hookedFind = false, hookedRequest = false}
         local loopData = shared.AntiBanLoop
 
-        local function hookOnce()
-            -- Hook FindFirstChild
-            if not loopData.hookedFind then
+        local function safeHook()
+            -- Hook FindFirstChild (1 lần duy nhất)
+            if not loopData.hookedFind and hookfunction and typeof(workspace.FindFirstChild) == "function" then
                 local oldFind = workspace.FindFirstChild
-                if typeof(oldFind) == "function" and hookfunction then
+                local ok = pcall(function()
                     hookfunction(oldFind, function(self, ...)
                         local args = {...}
-                        if tostring(args[1]):lower():find("screenshot") then
+                        if args[1] and tostring(args[1]):lower():find("screenshot") then
                             return nil
                         end
                         return oldFind(self, unpack(args))
                     end)
+                end)
+                if ok then
                     loopData.hookedFind = true
                 end
             end
 
-            -- Hook HTTP request
+            -- Hook HTTP request (1 lần duy nhất)
             if not loopData.hookedRequest then
                 local oldRequest = (syn and syn.request) or request or http_request
                 if hookfunction and typeof(oldRequest) == "function" then
-                    hookfunction(oldRequest, function(req)
-                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                            return {StatusCode = 200, Body = "Blocked"}
-                        end
-                        return oldRequest(req)
+                    local ok = pcall(function()
+                        hookfunction(oldRequest, function(req)
+                            if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                                return {StatusCode = 200, Body = "Blocked"}
+                            end
+                            return oldRequest(req)
+                        end)
                     end)
-                    loopData.hookedRequest = true
+                    if ok then
+                        loopData.hookedRequest = true
+                    end
                 end
             end
         end
 
         local function setFlagsOff()
+            if typeof(setfflag) ~= "function" then return end
             local flags = {
                 "AbuseReportScreenshot",
                 "AbuseReportScreenshotPercentage",
@@ -1959,39 +2062,52 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
                 "EnableAbuseReportScreenshot"
             }
             for _, flag in ipairs(flags) do
-                if typeof(setfflag) == "function" then
-                    pcall(function()
-                        setfflag(flag, "False")
-                    end)
-                end
+                pcall(function() setfflag(flag, "False") end)
             end
-            if typeof(setfflag) == "function" then
-                setfflag("AbuseReportScreenshotPercentage", "0")
-            end
+            pcall(function() setfflag("AbuseReportScreenshotPercentage", "0") end)
         end
 
         local function setFlagsOn()
-            if typeof(setfflag) == "function" then
+            if typeof(setfflag) ~= "function" then return end
+            pcall(function()
                 setfflag("AbuseReportScreenshot", "True")
                 setfflag("AbuseReportScreenshotPercentage", "100")
-            end
+            end)
         end
 
         if state then
-            hookOnce()
-            setFlagsOff()
+            safeHook()
             loopData.running = true
+
+            -- vòng lặp fast 0.01s
             task.spawn(function()
                 while loopData.running do
-                    setFlagsOff()
-                    task.wait(0.01) -- tốc độ siêu nhanh
+                    local ok = pcall(setFlagsOff)
+                    if not ok then
+                        -- nếu lỗi thì bỏ qua, tránh crash
+                        warn("[Anti-Ban] Flag loop error, skipping...")
+                    end
+                    task.wait(0.01)
                 end
             end)
-            print("[Anti-Ban] 🛡️ FAST protection ENABLED!")
+
+            -- watchdog: reset nếu GUI bị treo
+            if not loopData.watchdog then
+                loopData.watchdog = RunService.Heartbeat:Connect(function()
+                    if not loopData.running then
+                        if loopData.watchdog then
+                            loopData.watchdog:Disconnect()
+                            loopData.watchdog = nil
+                        end
+                    end
+                end)
+            end
+
+            warn("[Anti-Ban] 🛡️ FAST protection ENABLED (0.01s)")
         else
             loopData.running = false
             setFlagsOn()
-            print("[Anti-Ban] ⚠️ Protection DISABLED.")
+            warn("[Anti-Ban] ⚠️ Protection DISABLED")
         end
     end
 })
@@ -2077,7 +2193,9 @@ local SafeGenThread
 -- Danh sách account thật dùng V2
 local AllowedPlayers = {
     ["Hu1a0_Hu9"] = true,
-    ["hdksakst"] = true
+    ["hdksakst"] = true,
+    ["2x17d10"] = true,
+    ["rbown_VIP"] true
 }
 
 -- Danh sách killers nguy hiểm
