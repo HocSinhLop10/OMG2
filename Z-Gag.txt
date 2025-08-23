@@ -1,0 +1,364 @@
+--[[
+
+ _   _    _   _   _____     _       ___     _   _   _   _   ____   
+| | | |  | | | | |_   _|   / \     / _ \   | | | | | | | | | __ )  
+| |_| |  | | | |   | |    / _ \   | | | |  | |_| | | | | | |  _ \  
+|  _  |  | | | |   | |   / ___ \  | |_| |  |  _  | | |_| | | |_) | 
+\_| |_/   \___/    \_/  /_/   \_\  \___/   \_| |_/  \___/  |____/
+
+                        Hutao Hub
+]]
+
+---------------------------------------------------------------------------------
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/SaveManager.lua.txt"))()
+
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/InterfaceManager.lua.txt"))()
+
+local minimizeUI = Enum.KeyCode.RightAlt
+
+-- 🟢 Create Main UI
+local Window = Fluent:CreateWindow({
+    Title = "Hutao Hub [Free] | Grow A Garden",
+    SubTitle = "Version 0.0.0",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(480, 360),
+    Acrylic = false,
+    Theme = "Darker",
+    MinimizeKey = minimizeUI
+})
+
+-- Tabs
+local Tabs = {
+    About = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
+    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://121302760641013" }),
+    Shop = Window:AddTab({ Title = "Shop", Icon = "rbxassetid://121302760641013" }),
+    Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://121302760641013" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
+}  
+
+-- Tab.Dev
+
+local Options = Fluent.Options
+
+
+    Tabs.About:AddParagraph({
+        Title = "Note",
+        Content = "Thank you for using the script!"
+    })
+
+    Tabs.About:AddSection("↳ Links")
+
+    Tabs.About:AddButton({
+        Title = "Discord",
+        Description = "Copy the link to join the discord!",
+        Callback = function()
+            setclipboard("https://discord.gg/a4PsqfK6")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+
+    Tabs.About:AddButton({
+        Title = "Youtube",
+        Description = "Copy link to Subscribe to Youtube channel!",
+        Callback = function()
+            setclipboard("https://www.youtube.com/@SLKgamingSSR")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard!",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+    Tabs.About:AddButton({
+        Title = "Facebook",
+        Description = "Copy link to join facebook group!",
+        Callback = function()
+            setclipboard("https://www.facebook.com/groups/1180845463307087/?ref=share&mibextid=NSMWBT")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard!",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+
+-- Tabs.Misc
+
+
+-- FPS + Ping Drawing Setup
+local showFPS = true
+local showPing = true
+
+local fpsText = Drawing.new("Text")
+fpsText.Size = 16
+fpsText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 10)
+fpsText.Color = Color3.fromRGB(0, 255, 0)
+fpsText.Center = false
+fpsText.Outline = true
+fpsText.Visible = showFPS
+
+local msText = Drawing.new("Text")
+msText.Size = 16
+msText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 30)
+msText.Color = Color3.fromRGB(0, 255, 0)
+msText.Center = false
+msText.Outline = true
+msText.Visible = showPing
+
+local fpsCounter = 0
+local fpsLastUpdate = tick()
+
+RunService.RenderStepped:Connect(function()
+    fpsCounter += 1
+    if tick() - fpsLastUpdate >= 1 then
+        -- Update FPS
+        if showFPS then
+            fpsText.Text = "FPS: " .. tostring(fpsCounter)
+            fpsText.Visible = true
+        else
+            fpsText.Visible = false
+        end
+
+        -- Update Ping
+        if showPing then
+            local pingStat = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
+            local ping = pingStat and math.floor(pingStat:GetValue()) or 0
+            msText.Text = "Ping: " .. ping .. " ms"
+
+            if ping <= 60 then
+                msText.Color = Color3.fromRGB(0, 255, 0)
+            elseif ping <= 120 then
+                msText.Color = Color3.fromRGB(255, 165, 0)
+            else
+                msText.Color = Color3.fromRGB(255, 0, 0)
+            end
+
+            msText.Visible = true
+        else
+            msText.Visible = false
+        end
+
+        fpsCounter = 0
+        fpsLastUpdate = tick()
+    end
+end)
+
+-- ✅ Fluent GUI Toggles chuẩn
+local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
+    Title = "Show FPS",
+    Default = true
+})
+fpsToggle:OnChanged(function(val)
+    showFPS = val
+    fpsText.Visible = val
+end)
+
+local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
+    Title = "Show Ping",
+    Default = true
+})
+pingToggle:OnChanged(function(val)
+    showPing = val
+    msText.Visible = val
+end)
+
+-- Tabs.Settings
+
+
+local AexecToggle = Tabs.Settings:AddToggle("AexecToggle", {Title = "Auto Execute", Default = false })
+AexecToggle:OnChanged(function(Value)
+    if Value then
+        task.spawn(function()
+            pcall(function()
+                if queue_on_teleport then
+                    local HutaoHubScript1 = [[
+task.wait(3)
+loadstring(game:HttpGet('https://raw.githubusercontent.com/hungquan99/SkullHub/main/loader.lua'))()
+]]
+                    queue_on_teleport(HutaoHubScript1)
+                end
+            end)
+        end)
+        Fluent:Notify({
+            Title = "Hutao HUB",
+            Content = "Auto execute is enabled!",
+            Duration = 5
+        })
+    else
+        Fluent:Notify({
+            Title = "Hutao HUB",
+            Content = "Auto execute is disabled!",
+            Duration = 5
+        })
+    end
+end)
+
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
+SaveManager:IgnoreThemeSettings()
+
+-- You can add indexes of elements the save manager should ignore
+SaveManager:SetIgnoreIndexes({})
+
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
+InterfaceManager:SetFolder("Hutao HUB")
+SaveManager:SetFolder("Hutao HUB/Grow A Garden")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+-- Select First Tab By Default
+Window:SelectTab(1)
+
+Fluent:Notify({ Title = "Hutao HUB", Content = "Grow A Garden script loaded successfully!", Duration = 5 })
+SaveManager:LoadAutoloadConfig()
+
+
+-- 🟢 DRAGGABLE UI BUTTON WITH ENHANCED CLICK AND HOVER ANIMATIONS
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local ExistingUI = CoreGui:FindFirstChild("HutaoHubMinimizeUI")
+if ExistingUI then
+    ExistingUI:Destroy()
+end
+
+-- Create Floating UI
+local DragUI = Instance.new("ScreenGui")
+DragUI.Name = "HutaoHubMinimizeUI"
+DragUI.ResetOnSpawn = false
+DragUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- Ensures highest rendering priority
+DragUI.Parent = CoreGui -- Overrides all other UI elements
+
+-- Create Circular Button (Draggable + Clickable)
+local Button = Instance.new("ImageButton")
+Button.Parent = DragUI
+Button.Size = UDim2.new(0, 50, 0, 50) -- Adjust size if needed
+Button.Position = UDim2.new(0, 10, 1, -85) -- Initial position
+Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
+Button.BackgroundTransparency = 0.3 -- Semi-transparent
+Button.BorderSizePixel = 0
+Button.ClipsDescendants = true
+Button.Image = "rbxassetid://90508203972003" -- Replace with your custom image ID
+Button.ScaleType = Enum.ScaleType.Fit
+Button.Active = true -- Allows drag functionality
+Button.ZIndex = 1000 -- Ensure it stays on top
+
+-- Make UI Circular
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(1, 0) -- Full circle
+UICorner.Parent = Button
+
+-- Tween Info for Animations
+local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- Function to simulate RightShift key press
+local function SimulateKeyPress()
+    VirtualInputManager:SendKeyEvent(true, minimizeUI, false, game)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, minimizeUI, false, game)
+end
+
+-- Click Animation & UI Toggle (Only if NOT dragged too much)
+local isDragging = false
+local dragThreshold = 10 -- Allow small movement without canceling click
+
+Button.MouseButton1Click:Connect(function()
+    if isDragging then return end -- Prevent click after large dragging
+
+    -- Enhanced Click Animation
+    local tween = TweenService:Create(Button, tweenInfo, {
+        BackgroundTransparency = 0.5,
+        Size = UDim2.new(0, 45, 0, 45),
+        Rotation = 5
+    })
+    tween:Play()
+    task.wait(0.1)
+    local tweenBack = TweenService:Create(Button, tweenInfo, {
+        BackgroundTransparency = 0.3,
+        Size = UDim2.new(0, 50, 0, 50),
+        Rotation = 0
+    })
+    tweenBack:Play()
+
+    -- Simulate RightShift to Toggle UI
+    SimulateKeyPress()
+end)
+
+-- Hover Animation
+Button.MouseEnter:Connect(function()
+    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 55, 0, 55)}):Play()
+end)
+
+Button.MouseLeave:Connect(function()
+    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 50, 0, 50)}):Play()
+end)
+
+-- Dragging Logic for PC & Mobile
+local dragging, dragStart, startPos
+
+local function StartDrag(input)
+    isDragging = false -- Reset dragging state
+    dragging = true
+    dragStart = input.Position
+    startPos = Button.Position
+
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            dragging = false
+        end
+    end)
+end
+
+local function OnDrag(input)
+    if dragging then
+        local delta = (input.Position - dragStart).Magnitude
+        if delta > dragThreshold then -- Only mark as dragged if movement exceeds threshold
+            isDragging = true
+        end
+        Button.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + (input.Position.X - dragStart.X),
+            startPos.Y.Scale,
+            startPos.Y.Offset + (input.Position.Y - dragStart.Y)
+        )
+    end
+end
+
+-- Dragging Support for PC & Mobile (on the same button)
+Button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        StartDrag(input)
+    end
+end)
+
+Button.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        OnDrag(input)
+    end
+end)
