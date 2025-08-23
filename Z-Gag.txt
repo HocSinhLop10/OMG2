@@ -98,10 +98,668 @@ local Options = Fluent.Options
         end
     })
 
+-- Tabs.Main
 
+-- 🌱 Auto Harvest (Dropdown Speed + Teleport Bypass Distance)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Backpack = LocalPlayer:WaitForChild("Backpack")
+local Workspace = game:GetService("Workspace")
+
+-- Tìm plot farm của mình
+local farms = Workspace:FindFirstChild("Farm")
+local plot = nil
+for _, v in farms:GetDescendants() do
+    if v.Name == "Owner" and v.Value == LocalPlayer.Name then
+        plot = v.Parent.Parent
+        break
+    end
+end
+
+if not plot then
+    LocalPlayer:Kick("Plot not found!")
+end
+
+local plant_physical = plot:WaitForChild("Plants_Physical")
+
+-- 🌱 Bảng tốc độ thu hoạch
+local speedDelays = {
+    ["Slow"] = 1,      -- 1 giây
+    ["Normal"] = 0.1,  -- 0.1 giây
+    ["Fast"] = 0.01,   -- 0.01 giây
+    ["Super"] = 0.001, -- 0.001 giây
+}
+
+-- State
+local autoHarvestThread
+local selectedSpeed = "Normal"
+local harvestToggle = false
+
+-- Function check backpack đầy
+local function isFull()
+    return #Backpack:GetChildren() > 200
+end
+
+-- 🌱 Hàm harvest prompt từ xa (ép khoảng cách)
+local function harvestPrompt(prompt)
+    -- Ép khoảng cách cực lớn
+    prompt.MaxActivationDistance = 999999999
+    pcall(function()
+        fireproximityprompt(prompt)
+    end)
+end
+
+-- 🌱 Auto Harvest Loop
+local function startAutoHarvest()
+    autoHarvestThread = task.spawn(function()
+        while harvestToggle do
+            local delay = speedDelays[selectedSpeed] or 0.1
+
+            if not isFull() then
+                local prompts = {}
+                -- gom prompt lại 1 lần → tránh lag do quét liên tục
+                for _, v in plant_physical:GetDescendants() do
+                    if v:IsA("ProximityPrompt") then
+                        table.insert(prompts, v)
+                    end
+                end
+
+                for _, prompt in ipairs(prompts) do
+                    task.defer(function()
+                        harvestPrompt(prompt)
+                    end)
+                    task.wait(delay)
+                end
+            else
+                -- Nếu full thì nghỉ 2 giây → tránh lag/kick
+                task.wait(2)
+            end
+
+            task.wait()
+        end
+    end)
+end
+
+local function stopAutoHarvest()
+    if autoHarvestThread then
+        task.cancel(autoHarvestThread)
+        autoHarvestThread = nil
+    end
+end
+
+-- === 🌱 GUI Bindings (Fluent Style) ===
+-- Dropdown chọn tốc độ
+local harvestDropdown = Tabs.Main:AddDropdown("HarvestSpeedDropdown", {
+    Title = "Harvest Speed",
+    Values = { "Slow", "Normal", "Fast", "Super" },
+    Default = "Normal"
+})
+
+harvestDropdown:OnChanged(function(val)
+    selectedSpeed = val
+end)
+
+-- Toggle Auto Harvest
+local harvestToggleUI = Tabs.Main:AddToggle("HarvestAuraToggle", {
+    Title = "Auto Harvest",
+    Default = false
+})
+
+harvestToggleUI:OnChanged(function(Value)
+    harvestToggle = Value
+    if Value then
+        startAutoHarvest()
+    else
+        stopAutoHarvest()
+    end
+end)
+
+             
+
+-- Tabs.Player
+
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- =======================
+-- 3. NoClip
+-- =======================
+local noclipToggle = Tabs.Player:AddToggle("NoClipToggle", {
+    Title = "NoClip",
+    Default = false
+})
+
+local noclipConnection
+
+local function startNoClip()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+
+    noclipConnection = RunService.Stepped:Connect(function()
+        if noclipToggle.Value then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function stopNoClip()
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true -- reset lại mặc định
+            end
+        end
+    end
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+end
+
+noclipToggle:OnChanged(function(value)
+    if value then
+        startNoClip()
+    else
+        stopNoClip()
+    end
+end)
+
+
+-- Toggle Nhảy Vô Hạn trong Tabs.Player
+local infiniteJumpToggle = Tabs.Player:AddToggle("InfiniteJumpToggle", {
+    Title = "Infinite Jump",
+    Default = false
+})
+
+local infiniteJumpConnection
+
+-- Hàm bật/tắt nhảy vô hạn
+local function startInfiniteJump()
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    infiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+        if infiniteJumpToggle.Value then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+end
+
+local function stopInfiniteJump()
+    if infiniteJumpConnection then
+        infiniteJumpConnection:Disconnect()
+        infiniteJumpConnection = nil
+    end
+end
+
+infiniteJumpToggle:OnChanged(function(Value)
+    if Value then
+        startInfiniteJump()
+    else
+        stopInfiniteJump()
+    end
+end)
+
+
+    Tabs.Player:AddSection("↳ Flying")
+
+
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- State
+local flying = false
+local flySpeed = 50
+local bodyVelocity, bodyGyro, renderConn
+
+-- Function: Start Flying
+local function startFlying()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+	local HRP = character:WaitForChild("HumanoidRootPart")
+
+	local seat = humanoid.SeatPart
+	local attachPart = seat or HRP
+
+	-- Body movers
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+	bodyVelocity.Velocity = Vector3.zero
+	bodyVelocity.Parent = attachPart
+
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+	bodyGyro.CFrame = attachPart.CFrame
+	bodyGyro.Parent = attachPart
+
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+	-- Movement logic
+	renderConn = RunService.RenderStepped:Connect(function()
+		if attachPart and Camera then
+			local camCF = Camera.CFrame
+			local moveDir = humanoid.MoveDirection
+
+			local moveVec = Vector3.zero
+
+			if moveDir.Magnitude > 0 then
+				-- Dựng vector bay theo hướng nhìn
+				local forward = camCF.LookVector
+				local flatForward = Vector3.new(forward.X, 0, forward.Z).Unit
+				local verticalInfluence = forward.Unit.Y
+
+				-- Xác định xem đang đi tiến hay lùi
+				local movingForward = flatForward:Dot(moveDir.Unit) > 0.1
+				local movingBackward = flatForward:Dot(moveDir.Unit) < -0.1
+
+				local yVelocity = 0
+
+				-- Nếu đang đi tiến hoặc lùi, áp dụng hướng nhìn để tăng giảm độ cao
+				if movingForward then
+					yVelocity = verticalInfluence
+				elseif movingBackward then
+					yVelocity = -verticalInfluence
+				end
+
+				-- Kết hợp chuyển động ngang + dọc
+				moveVec = Vector3.new(moveDir.X, yVelocity, moveDir.Z).Unit
+			end
+
+			bodyVelocity.Velocity = moveVec * flySpeed
+			bodyGyro.CFrame = camCF
+		end
+	end)
+
+	flying = true
+end
+
+-- Function: Stop Flying
+local function stopFlying()
+	flying = false
+
+	if renderConn then renderConn:Disconnect() renderConn = nil end
+	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+
+	-- Fix: Khôi phục trạng thái nhân vật
+	local character = player.Character
+	if character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		end
+	end
+end
+
+-- Auto handle respawn
+Players.LocalPlayer.CharacterAdded:Connect(function()
+	if flying then
+		task.wait(1)
+		startFlying()
+	end
+end)
+
+-- 🟢 Slider lên trước Toggle
+local FlySpeedSlider = Tabs.Player:AddSlider("FlySpeedSlider", {
+	Title = "Fly Speed",
+	Default = 50,
+	Min = 10,
+	Max = 300,
+	Rounding = 0,
+})
+
+FlySpeedSlider:OnChanged(function(Value)
+	flySpeed = Value
+end)
+
+local FlyToggle = Tabs.Player:AddToggle("FlyToggle", {
+	Title = "Fly New",
+	Default = false
+})
+
+FlyToggle:OnChanged(function(Value)
+	if Value then
+		startFlying()
+	else
+		stopFlying()
+	end
+end)
+
+
+    Tabs.Player:AddSection("↳ Walk Speed")
+
+
+-- === Walk Speed Setup ===
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+
+local defaultSpeed = 16
+local maxSpeed = 300
+local currentSpeed = defaultSpeed
+local walkSpeedEnabled = false
+
+-- Cập nhật Humanoid khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = Character:WaitForChild("Humanoid")
+    if walkSpeedEnabled then
+        Humanoid.WalkSpeed = currentSpeed
+    else
+        Humanoid.WalkSpeed = defaultSpeed
+    end
+end)
+
+-- === GUI Bindings ===
+-- Slider Walk Speed
+Tabs.Player:AddSlider("WalkSpeedSlider", {
+    Title = "Set Speed",
+    Min = 16,
+    Max = maxSpeed,
+    Default = defaultSpeed,
+    Rounding = 1,
+}):OnChanged(function(value)
+    currentSpeed = value
+    if walkSpeedEnabled and Humanoid then
+        Humanoid.WalkSpeed = currentSpeed
+    end
+end)
+
+-- Toggle bật/tắt Walk Speed
+Tabs.Player:AddToggle("WalkSpeedToggle", {
+    Title = "Walk Speed",
+    Default = false,
+}):OnChanged(function(enabled)
+    walkSpeedEnabled = enabled
+    if Humanoid then
+        if walkSpeedEnabled then
+            Humanoid.WalkSpeed = currentSpeed
+        else
+            Humanoid.WalkSpeed = defaultSpeed
+        end
+    end
+end)
+
+
+    Tabs.Player:AddSection("↳ Jump Power")
+
+
+-- === High Jump Setup ===
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+
+local defaultJump = 50      -- Mặc định giống Roblox
+local maxJump = 300          -- Max Roblox JumpPower
+local currentJump = defaultJump
+local jumpEnabled = false
+
+-- Cập nhật Humanoid khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = Character:WaitForChild("Humanoid")
+    if jumpEnabled then
+        Humanoid.JumpPower = currentJump
+    else
+        Humanoid.JumpPower = defaultJump
+    end
+end)
+
+-- === GUI Bindings ===
+-- Slider Jump Power
+Tabs.Player:AddSlider("JumpPowerSlider", {
+    Title = "Jump Power",
+    Min = 50,
+    Max = maxJump,
+    Default = defaultJump,
+    Rounding = 1,
+}):OnChanged(function(value)
+    currentJump = value
+    if jumpEnabled and Humanoid then
+        Humanoid.JumpPower = currentJump
+    end
+end)
+
+-- Toggle bật/tắt High Jump
+Tabs.Player:AddToggle("HighJumpToggle", {
+    Title = "High Jump",
+    Default = false,
+}):OnChanged(function(enabled)
+    jumpEnabled = enabled
+    if Humanoid then
+        if jumpEnabled then
+            Humanoid.JumpPower = currentJump
+        else
+            Humanoid.JumpPower = defaultJump
+        end
+    end
+end)
+
+-- Tabs.Shop
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = game:GetService("Players").LocalPlayer
+
+-- Dữ liệu
+local seed_data = require(ReplicatedStorage.Data:WaitForChild("SeedData"))
+local egg_data = require(ReplicatedStorage.Data:WaitForChild("PetEggData"))
+local gear_data = require(ReplicatedStorage.Data:WaitForChild("GearData"))
+local cosmetic_data = require(ReplicatedStorage.Data:WaitForChild("CosmeticItemShopData"))
+
+-- Danh sách item
+local seed_names, egg_names, gear_names, cosmetic_names = {}, {}, {}, {}
+for i,v in seed_data do if v.StockChance>0 then table.insert(seed_names,i) end end
+for _,v in egg_data do if v.StockChance>0 then table.insert(egg_names,v.EggName) end end
+for _,v in gear_data do if v.StockChance>0 then table.insert(gear_names,v.GearName) end end
+for _,v in cosmetic_data do table.insert(cosmetic_names,v.CosmeticName) end
+
+-- State
+local auto_buy_seeds, auto_buy_eggs, auto_buy_gears, auto_buy_cosmetics = false, false, false, false
+local selected_seeds, selected_eggs, selected_gears, selected_cosmetics = {}, {}, {}, {}
+local BUY_DELAY = 0.1
+
+-- Bộ đếm thông báo
+local purchase_counts = {}
+
+-- Hàm loop an toàn cho toggle
+local function safeToggleLoop(enabledFlag, func)
+    task.spawn(function()
+        while enabledFlag() do
+            local ok, err = pcall(func)
+            if not ok then warn("Error in auto-buy loop:", err) end
+            task.wait(BUY_DELAY)
+        end
+    end)
+end
+
+-- Hàm thông báo Fluent GUI
+local function notifyItem(name, count)
+    Fluent:Notify({
+        Title = "Hutao Hub [Free]",
+        Content = "You Bought " ..name.." x"..count,
+        Duration = 2
+    })
+end
+
+    Tabs.Shop:AddSection("↳ Seed")
+
+
+-- === Seed Shop Multi-select ===
+Tabs.Shop:AddDropdown("SelectSeed", { Title = "Select Seed", Values = seed_names, Multi = true, Default = {} })
+    :OnChanged(function(selection)
+        selected_seeds = {}
+        for item, isSelected in pairs(selection) do
+            if isSelected then table.insert(selected_seeds, item) end
+        end
+    end)
+
+Tabs.Shop:AddToggle("AutoBuySeed", { Title = "Auto Buy Seed", Default = false })
+    :OnChanged(function(enabled)
+        auto_buy_seeds = enabled
+        safeToggleLoop(function() return auto_buy_seeds end, function()
+            local shop = LocalPlayer.PlayerGui.Seed_Shop.Frame.ScrollingFrame:GetChildren()
+            for _, v in shop do
+                if table.find(selected_seeds, v.Name) then
+                    local stock = tonumber(v.Main_Frame.Stock_Text.Text:match("%d+")) or 0
+                    if stock > 0 then
+                        ReplicatedStorage.GameEvents.BuySeedStock:FireServer(v.Name)
+                        purchase_counts[v.Name] = (purchase_counts[v.Name] or 0) + 1
+                        notifyItem(v.Name, purchase_counts[v.Name])
+                        task.wait(BUY_DELAY)
+                    end
+                end
+            end
+        end)
+    end)
+
+
+    Tabs.Shop:AddSection("↳ Eggs")
+
+
+-- === Egg Shop Multi-select ===
+Tabs.Shop:AddDropdown("SelectEgg", { Title = "Select Egg", Values = egg_names, Multi = true, Default = {} })
+    :OnChanged(function(selection)
+        selected_eggs = {}
+        for item, isSelected in pairs(selection) do
+            if isSelected then table.insert(selected_eggs, item) end
+        end
+    end)
+
+Tabs.Shop:AddToggle("AutoBuyEgg", { Title = "Auto Buy Egg", Default = false })
+    :OnChanged(function(enabled)
+        auto_buy_eggs = enabled
+        safeToggleLoop(function() return auto_buy_eggs end, function()
+            local locations = workspace.NPCS["Pet Stand"].EggLocations:GetChildren()
+            for i,v in ipairs(locations) do
+                if table.find(selected_eggs, v.Name) and not v:GetAttribute("RobuxEggOnly") then
+                    ReplicatedStorage.GameEvents.BuyPetEgg:FireServer(i-3)
+                    purchase_counts[v.Name] = (purchase_counts[v.Name] or 0) + 1
+                    notifyItem(v.Name, purchase_counts[v.Name])
+                    task.wait(BUY_DELAY)
+                end
+            end
+        end)
+    end)
+
+    Tabs.Shop:AddSection("↳ Gear")
+
+
+-- === Gear Shop Multi-select ===
+Tabs.Shop:AddDropdown("SelectGear", { Title = "Select Gear", Values = gear_names, Multi = true, Default = {} })
+    :OnChanged(function(selection)
+        selected_gears = {}
+        for item, isSelected in pairs(selection) do
+            if isSelected then table.insert(selected_gears, item) end
+        end
+    end)
+
+Tabs.Shop:AddToggle("AutoBuyGear", { Title = "Auto Buy Gear", Default = false })
+    :OnChanged(function(enabled)
+        auto_buy_gears = enabled
+        safeToggleLoop(function() return auto_buy_gears end, function()
+            local shop = LocalPlayer.PlayerGui.Gear_Shop.Frame.ScrollingFrame:GetChildren()
+            for _, v in shop do
+                if table.find(selected_gears, v.Name) then
+                    local stock = tonumber(v.Main_Frame.Stock_Text.Text:match("%d+")) or 0
+                    if stock > 0 then
+                        ReplicatedStorage.GameEvents.BuyGearStock:FireServer(v.Name)
+                        purchase_counts[v.Name] = (purchase_counts[v.Name] or 0) + 1
+                        notifyItem(v.Name, purchase_counts[v.Name])
+                        task.wait(BUY_DELAY)
+                    end
+                end
+            end
+        end)
+    end)
+
+
+    Tabs.Shop:AddSection("↳ Cosmetic")
+
+
+-- === Cosmetic Shop Multi-select ===
+Tabs.Shop:AddDropdown("SelectCosmetic", { Title = "Select Cosmetic", Values = cosmetic_names, Multi = true, Default = {} })
+    :OnChanged(function(selection)
+        selected_cosmetics = {}
+        for item, isSelected in pairs(selection) do
+            if isSelected then table.insert(selected_cosmetics, item) end
+        end
+    end)
+
+Tabs.Shop:AddToggle("AutoBuyCosmetic", { Title = "Auto Buy Cosmetic", Default = false })
+    :OnChanged(function(enabled)
+        auto_buy_cosmetics = enabled
+        safeToggleLoop(function() return auto_buy_cosmetics end, function()
+            local content = LocalPlayer.PlayerGui.CosmeticShop_UI.CosmeticShop.Main.Holder.Shop.ContentFrame:GetDescendants()
+            for _, v in content do
+                if table.find(selected_cosmetics, v.Name) then
+                    local stock = tonumber(v.Main.Stock.STOCK_TEXT.Text:match("%d+")) or 0
+                    if stock > 0 then
+                        if v.Parent.Name == "BottomSegment" then
+                            ReplicatedStorage.GameEvents.BuyCosmeticItem:FireServer(v.Name)
+                        elseif v.Parent.Name == "TopSegment" then
+                            ReplicatedStorage.GameEvents.BuyCosmeticCrate:FireServer(v.Name)
+                        end
+                        purchase_counts[v.Name] = (purchase_counts[v.Name] or 0) + 1
+                        notifyItem(v.Name, purchase_counts[v.Name])
+                        task.wait(BUY_DELAY)
+                    end
+                end
+            end
+        end)
+    end)
 
 -- Tabs.Misc
 
+-- 🌐 Anti AFK Script (Fluent GUI)
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local antiAfkEnabled = false
+
+-- Ngăn bị AFK
+LocalPlayer.Idled:Connect(function()
+    if antiAfkEnabled then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
+
+-- === GUI Bindings (Fluent Style) ===
+local antiAfkToggle = Tabs.Misc:AddToggle("AntiAFKToggle", {
+    Title = "Anti AFK",
+    Default = false,
+    Tooltip = "Prevents you from getting disconnected due to inactivity"
+})
+
+antiAfkToggle:OnChanged(function(Value)
+    antiAfkEnabled = Value
+end)
+
+
+    Tabs.Misc:AddSection("↳ Show")
 
 -- FPS + Ping Drawing Setup
 local showFPS = true
