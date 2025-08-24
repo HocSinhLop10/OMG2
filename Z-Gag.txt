@@ -100,6 +100,38 @@ local Options = Fluent.Options
 
 -- Tabs.Main
 
+
+
+-- === Steal Best Fruit ===
+Tabs.Main:AddButton({
+    Title = "Steal Best Value",
+    Callback = function()
+        if not best_fruit then return end
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        local original_pos = root.CFrame
+        for _, prompt in ipairs(best_fruit:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") then
+                local target = prompt.Parent:IsA("BasePart") and prompt.Parent or best_fruit:FindFirstChildWhichIsA("BasePart")
+                if target then
+                    root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+                    task.wait(0.2)
+                    fireproximityprompt(prompt)
+                    task.wait(0.2)
+                    root.CFrame = original_pos
+                end
+                break
+            end
+        end
+    end
+})
+
+
+
+    Tabs.Main:AddSection("↳ Harvest")
+
+
 -- 🌱 Auto Harvest (Dropdown Speed + Teleport Bypass Distance)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -214,7 +246,173 @@ harvestToggleUI:OnChanged(function(Value)
     end
 end)
 
-             
+    Tabs.Main:AddSection("↳ Plant")
+
+-- === Auto Plant Seeds ===
+Tabs.Main:AddDropdown("PlantMethod", {
+    Title = "Select Plant Method",
+    Values = { "Player Position", "Selected Position" },
+    Multi = false,
+    Default = plantSeedMethod
+}):OnChanged(function(selection)
+    plantSeedMethod = selection
+end)
+
+Tabs.Main:AddToggle("AutoPlantSeeds", {
+    Title = "Auto Plant Seeds",
+    Default = autoPlantSeeds,
+    Tooltip = "Plants seeds automatically with selected method"
+}):OnChanged(function(enabled)
+    autoPlantSeeds = enabled
+    if enabled then
+        task.spawn(function()
+            repeat
+                for _, tool in pairs(Backpack:GetChildren()) do
+                    if tool:IsA("Tool") and tool:GetAttribute("ITEM_TYPE") == "n" then -- Seed
+                        LocalPlayer.Character.Humanoid:EquipTool(tool)
+                        local qty = tool:GetAttribute("Quantity") or 1
+                        for i = 1, qty do
+                            local pos = (plantSeedMethod == "Selected Position" and selectedPositionPlant) or LocalPlayer.Character:GetPivot().Position
+                            ReplicatedStorage.GameEvents.Plant_RE:FireServer(pos, tool:GetAttribute("Seed"))
+                            task.wait(0.25)
+                        end
+                    end
+                end
+                task.wait()
+            until not autoPlantSeeds
+        end)
+    end
+end)
+
+Tabs.Main:AddButton({
+    Title = "Set Plant Position",
+    Callback = function()
+        if LocalPlayer.Character then
+            selectedPositionPlant = LocalPlayer.Character:GetPivot().Position
+            Fluent:Notify({Title = "Hutao Hub", Content = "Plant position set!", Duration = 2})
+        end
+    end
+})
+
+
+
+
+    Tabs.Main:AddSection("↳ Hatch")
+
+
+
+-- === Hatch Speed Dropdown (trước Hatch Aura) ===
+Tabs.Main:AddDropdown("HatchSpeed", {
+    Title = "Hatch Speed",
+    Values = { "Slow", "Normal", "Fast", "Super" },
+    Multi = false,
+    Default = "Normal",
+    Tooltip = "Select hatch speed"
+}):OnChanged(function(value)
+    if value == "Slow" then
+        hatchDelay = 1
+    elseif value == "Normal" then
+        hatchDelay = 0.1
+    elseif value == "Fast" then
+        hatchDelay = 0.01
+    elseif value == "Super" then
+        hatchDelay = 0.001
+    end
+
+    if hatchDelay == 0.001 then
+        Fluent:Notify({Title = "Hutao Hub", Content = "Super speed may cause lag!", Duration = 2})
+    end
+end)
+
+-- === Hatch Aura ===
+Tabs.Main:AddToggle("HatchAura", {
+    Title = "Hatch Aura",
+    Default = hatchAura,
+}):OnChanged(function(enabled)
+    hatchAura = enabled
+    if enabled then
+        task.spawn(function()
+            repeat
+                for _, obj in pairs(ObjectPhysical:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") and obj.Parent.Parent:GetAttribute("TimeToHatch") == 0 then
+                        if (obj.Parent.Parent:GetPivot().Position - LocalPlayer.Character:GetPivot().Position).Magnitude < obj.MaxActivationDistance * 2 then
+                            obj:InputHoldBegin()
+                            task.wait(0.1)
+                            obj:InputHoldEnd()
+                            task.wait(hatchDelay)
+                        end
+                    end
+                end
+                task.wait()
+            until not hatchAura
+        end)
+    end
+end)
+
+
+    Tabs.Main:AddSection("↳ Place")
+
+-- === Auto Place Eggs ===
+Tabs.Main:AddDropdown("PlaceEggMethod", {
+    Title = "Select Egg Place Method",
+    Values = { "Player Position", "Selected Position" },
+    Multi = false,
+    Default = place_egg_method,
+    Tooltip = "Auto places eggs with selected method"
+}):OnChanged(function(selection)
+    place_egg_method = selection
+end)
+
+Tabs.Main:AddToggle("AutoPlaceEggs", {
+    Title = "Auto Place Eggs",
+    Default = auto_place_eggs,
+}):OnChanged(function(enabled)
+    auto_place_eggs = enabled
+    if enabled then
+        task.spawn(function()
+            repeat
+                if #ObjectPhysical:GetChildren() < 3 then
+                    for _, v in pairs(Backpack:GetChildren()) do
+                        if v:IsA("Tool") and v:GetAttribute(inventory_enums.ITEM_TYPE) == item_types.PetEgg then
+                            LocalPlayer.Character.Humanoid:EquipTool(v)
+                            local tool = get_tool()
+                            if tool and tool:GetAttribute(inventory_enums.Uses) then
+                                for i = 1, tool:GetAttribute(inventory_enums.Uses) do
+                                    local pos = (place_egg_method == "Selected Position" and selected_position_egg) or LocalPlayer.Character:GetPivot().Position
+                                    ReplicatedStorage.GameEvents.PetEggService:FireServer("CreateEgg", pos)
+                                    task.wait(0.25)
+                                end
+                            end
+                        end
+                    end
+                end
+                task.wait()
+            until not auto_place_eggs
+        end)
+    end
+end)
+
+Tabs.Main:AddButton({
+    Title = "Set Egg Position",
+    Callback = function()
+        if LocalPlayer.Character then
+            selected_position_egg = LocalPlayer.Character:GetPivot().Position
+            Fluent:Notify({Title = "Hutao Hub", Content = "Egg position set!", Duration = 2})
+        end
+    end
+})
+
+-- === Egg Predictor ===
+Tabs.Main:AddToggle("EggPredictor", {
+    Title = "Predict Egg Hatch",
+    Default = egg_predictor,
+}):OnChanged(function(enabled)
+    egg_predictor = enabled
+end)
+
+
+
+
 
 -- Tabs.Player
 
@@ -559,6 +757,91 @@ end)
 
 -- Tabs.Shop
 
+-- === Sell All / Sell Held Item ===
+Tabs.Shop:AddButton({
+    Title = "Sell All Plant",
+    Callback = function()
+        local character = LocalPlayer.Character
+        local sell_point = workspace:FindFirstChild("Tutorial_Points") and workspace.Tutorial_Points:FindFirstChild("Tutorial_Point_2")
+        if character and sell_point then
+            local old_pos = character:GetPivot().Position
+            character:MoveTo(sell_point.Position)
+            task.wait(0.25)
+            
+            local sell_inventory = ReplicatedStorage:FindFirstChild("GameEvents") and ReplicatedStorage.GameEvents:FindFirstChild("Sell_Inventory")
+            if sell_inventory then
+                -- Lấy tất cả tool Holdable và Pet trong backpack
+                local uuids = {}
+                for _, tool in ipairs(backpack:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        local type_ = tool:GetAttribute(inventory_enums.ITEM_TYPE)
+                        if type_ == item_types.Holdable or type_ == item_types.Pet then
+                            local uuid = tool:GetAttribute(inventory_enums.ITEM_UUID)
+                            if uuid then table.insert(uuids, uuid) end
+                        end
+                    end
+                end
+                for _, uuid in ipairs(uuids) do
+                    sell_inventory:FireServer(uuid)
+                    task.wait(0.1)
+                end
+                Fluent:Notify({Title="Hutao Hub", Content="Sold all items!", Duration=2})
+            else
+                Fluent:Notify({Title="Hutao Hub", Content="Sell_Inventory event not found!", Duration=2})
+            end
+
+            task.wait(0.25)
+            character:MoveTo(old_pos)
+        else
+            Fluent:Notify({Title="Hutao Hub", Content="Character or sell point not found!", Duration=2})
+        end
+    end
+})
+
+Tabs.Shop:AddButton({
+    Title = "Sell Held Item",
+    Callback = function()
+        local tool = get_tool()
+        local character = LocalPlayer.Character
+        local sell_point = workspace:FindFirstChild("Tutorial_Points") and workspace.Tutorial_Points:FindFirstChild("Tutorial_Point_2")
+
+        if not tool then
+            Fluent:Notify({Title="Hutao Hub", Content="Not holding a tool", Duration=2})
+            return
+        end
+        if not character or not sell_point then
+            Fluent:Notify({Title="Hutao Hub", Content="Character or sell point not found!", Duration=2})
+            return
+        end
+
+        local item_type = tool:GetAttribute(inventory_enums.ITEM_TYPE)
+        if item_type == item_types.Holdable or item_type == item_types.Pet then
+            local uuid = tool:GetAttribute(inventory_enums.ITEM_UUID)
+            if not uuid then
+                Fluent:Notify({Title="Hutao Hub", Content="Tool UUID not found!", Duration=2})
+                return
+            end
+
+            local old_pos = character:GetPivot().Position
+            character:MoveTo(sell_point.Position)
+            task.wait(0.25)
+
+            local sell_item = ReplicatedStorage:FindFirstChild("GameEvents") and ReplicatedStorage.GameEvents:FindFirstChild("Sell_Item")
+            if sell_item then
+                sell_item:FireServer(uuid)
+                Fluent:Notify({Title="Hutao Hub", Content="Sold "..tool.Name, Duration=2})
+            else
+                Fluent:Notify({Title="Hutao Hub", Content="Sell_Item event not found!", Duration=2})
+            end
+
+            task.wait(0.25)
+            character:MoveTo(old_pos)
+        end
+    end
+})
+
+
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 
@@ -730,6 +1013,127 @@ Tabs.Shop:AddToggle("AutoBuyCosmetic", { Title = "Auto Buy Cosmetic", Default = 
         end)
     end)
 
+-- Tabs.Visual
+
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Internal containers
+local drawingsPlayer = {}
+local espConnectionPlayer
+local addedConnPlayer, removedConnPlayer
+
+-- Tạo ESP + Highlight cho Player
+local function createPlayerESP(player, drawings, color)
+    if not player.Character or drawings[player] then return end
+    local model = player.Character
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
+
+    -- Text
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Visible = false
+    text.Color = color
+
+    -- Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = model
+    highlight.FillColor = color
+    highlight.OutlineColor = color
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = false
+    highlight.Parent = model
+
+    drawings[player] = {text = text, humanoid = humanoid, highlight = highlight}
+end
+
+-- Xoá ESP Player
+local function removePlayerESP(player, drawings)
+    local data = drawings[player]
+    if data then
+        if data.text then pcall(function() data.text:Remove() end) end
+        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+    end
+    drawings[player] = nil
+end
+
+-- Quét tất cả Player để tạo ESP
+local function scanPlayersForESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            createPlayerESP(player, drawingsPlayer, Color3.new(1,1,1)) -- màu trắng
+        end
+    end
+end
+
+-- 🔥 Bắt đầu ESP Player
+local function startESPPlayer()
+    if espConnectionPlayer then return end
+    scanPlayersForESP()
+
+    espConnectionPlayer = RunService.RenderStepped:Connect(function()
+        for player, data in pairs(drawingsPlayer) do
+            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
+            if player.Character and humanoid and humanoid.Health > 0 and player.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = player.Character.HumanoidRootPart
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
+                local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+                text.Text = string.format("%s [%.0fm]", player.Name, dist)
+                text.Position = Vector2.new(pos.X, pos.Y)
+                text.Visible = onScreen
+                highlight.Enabled = true
+            else
+                text.Visible = false
+                highlight.Enabled = false
+            end
+        end
+    end)
+
+    Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            createPlayerESP(player, drawingsPlayer, Color3.new(1,1,1))
+        end
+    end)
+
+    Players.PlayerRemoving:Connect(function(player)
+        removePlayerESP(player, drawingsPlayer)
+    end)
+end
+
+-- 🛑 Dừng ESP Player
+local function stopESPPlayer()
+    if espConnectionPlayer then espConnectionPlayer:Disconnect() end
+    for player, data in pairs(drawingsPlayer) do
+        if data.text then pcall(function() data.text:Remove() end) end
+        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+    end
+    table.clear(drawingsPlayer)
+    espConnectionPlayer = nil
+end
+
+-- 📌 Toggle ESP Player
+Tabs.Visual:AddToggle("ESPPlayerToggle", {
+    Title = "ESP Player",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        startESPPlayer()
+    else
+        stopESPPlayer()
+    end
+end)
+
+
+
 -- Tabs.Misc
 
 -- 🌐 Anti AFK Script (Fluent GUI)
@@ -756,6 +1160,69 @@ local antiAfkToggle = Tabs.Misc:AddToggle("AntiAFKToggle", {
 
 antiAfkToggle:OnChanged(function(Value)
     antiAfkEnabled = Value
+end)
+
+    Tabs.Misc:AddSection("↳ Server")
+
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+
+-- State
+local autoRejoin = false
+local rejoinConnection
+
+-- === Hàm Rejoin an toàn ===
+local function safeRejoin()
+    pcall(function()
+        Fluent:Notify({
+            Title = "Hutao Hub [Free]",
+            Content = "Rejoining server...",
+            Duration = 2
+        })
+    end)
+    task.spawn(function()
+        task.wait(1)
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
+        end)
+    end)
+end
+
+-- === Button Rejoin Server ===
+pcall(function()
+    Tabs.Misc:AddButton({
+        Title = "Rejoin Server",
+        Callback = safeRejoin
+    })
+end)
+
+-- === Toggle Auto Rejoin ===
+pcall(function()
+    local toggle = Tabs.Misc:AddToggle({
+        Title = "Auto Rejoin",
+        Default = false
+    })
+    -- Kiểm tra toggle có OnChanged không
+    if toggle and toggle.OnChanged then
+        toggle:OnChanged(function(enabled)
+            autoRejoin = enabled
+
+            -- Ngắt kết nối cũ
+            if rejoinConnection then
+                rejoinConnection:Disconnect()
+                rejoinConnection = nil
+            end
+
+            if autoRejoin then
+                rejoinConnection = Players.PlayerRemoving:Connect(function(player)
+                    if player == LocalPlayer then
+                        safeRejoin()
+                    end
+                end)
+            end
+        end)
+    end
 end)
 
 
