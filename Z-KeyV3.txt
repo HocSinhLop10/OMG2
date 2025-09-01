@@ -29,6 +29,7 @@ local PremiumKeys = {
     ["chadoi_bay3acc"] = "HutaoHub_Premium-[chadoi_bay3acc]",
     ["rbown_VIP"] = "HutaoHub_Premium-[rbown_VIP]",
     ["soss376"] = "HutaoHub_Premium-[soss376]",
+    ["ongtrumkhoinghiep_2"] = "HutaoHub_Premium-[ongtrumkhoinghiep_2]",
 }
 
 local PremiumExpire = 999999 * 24 * 60 * 60
