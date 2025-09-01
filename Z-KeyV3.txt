@@ -14,6 +14,11 @@ local Links = {
     {url="https://direct-link.net/1390605/9HplSFXSJx5n", key="HutaoHub_8392-0183-2729-7382"},
     {url="https://direct-link.net/1390605/5bbsKXJH7y3Y", key="HutaoHub_3739-2018-4782-7192"},
     {url="https://link-center.net/1390605/9d1CSUQNebGL", key="HutaoHub_7483-2627-0916-1683"},
+    {url="https://link-hub.net/1390605/DGK2HQOeelDA", key="HutaoHub_2839-7382-0174-8298"},
+    {url="https://link-hub.net/1390605/NBCFzAXYNJi6", key="HutaoHub_0297-0193-1928-4921"},
+    {url="https://link-hub.net/1390605/RucSXobEQ0Z6", key="HutaoHub_5028-3829-8104-7110"},
+    {url="https://direct-link.net/1390605/jTI5uFxkCCvo", key="HutaoHub_6489-2727-4729-9183"},
+    {url="https://direct-link.net/1390605/dn1W2dSRFDpd", key="HutaoHub_4728-9592-9201-3838"},
 }
 
 -- Premium Keys (mỗi key chỉ dành cho đúng username Roblox)
@@ -265,21 +270,53 @@ if Saved.key and Saved.expire and now < Saved.expire then
     return
 end
 
--- Logic Get Key
+-- Logic Get Key (Anti-trùng Free Key + Reset vòng mới)
 GetKeyBtn.MouseButton1Click:Connect(function()
     local saved = loadSaved()
     local now = os.time()
 
+    -- Nếu key còn hạn thì dùng luôn
     if saved.expire and now < saved.expire then
         setclipboard(saved.url)
         Status.Text = "Bạn đã có link, key còn hiệu lực!"
         return
     end
 
-    local pick = Links[math.random(1,#Links)]
-    saveData({url=pick.url, key=pick.key, expire=now+24*60*60})
+    -- Danh sách key đã dùng (nếu chưa có thì rỗng)
+    local usedKeys = saved.usedKeys or {}
+    local available = {}
+
+    -- Lọc những key chưa dùng
+    for _, v in ipairs(Links) do
+        if not table.find(usedKeys, v.key) then
+            table.insert(available, v)
+        end
+    end
+
+    -- Nếu hết key thì reset vòng mới
+    if #available == 0 then
+        usedKeys = {}
+        available = Links
+        Status.Text = "Key Đang Update !!"
+    end
+
+    -- Random 1 key trong available
+    local pick = available[math.random(1, #available)]
+
+    -- Thêm key vào danh sách đã dùng
+    table.insert(usedKeys, pick.key)
+
+    -- Lưu lại
+    saveData({
+        url = pick.url,
+        key = pick.key,
+        expire = now + 24*60*60,
+        usedKeys = usedKeys,
+    })
+
+    -- Copy link và báo status
     setclipboard(pick.url)
-    Status.Text = "Link mới đã copy! Lấy key từ đó."
+    Status.Text = "Link mới đã copy! Vào link để lấy key."
 end)
 
 -- Logic Check Key
