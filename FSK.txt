@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.7",
+    SubTitle = "Version 4.0.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -109,7 +109,37 @@ do
     local CurrentTarget = nil
     local lastAttack = 0
 
+    -- 🟢 Danh sách ưu tiên
+    local PriorityList = {
+        ["0206octavio"] = true
+    }
+
+    local function GetPriorityTarget()
+        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+        if not survivorsFolder then return nil end
+
+        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+            -- chỉ check model survivors
+            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                if PriorityList[survivor.Name] then
+                    local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        return survivor
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
     local function GetClosestSurvivor()
+        -- 🔴 Check ưu tiên trong Survivors trước
+        local priorityTarget = GetPriorityTarget()
+        if priorityTarget then
+            return priorityTarget
+        end
+
+        -- 🔵 Nếu không có trong danh sách ưu tiên → chọn gần nhất
         local localChar = LocalPlayer.Character
         if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
         local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
@@ -190,6 +220,7 @@ end
 
 
 
+
 local Players = game:GetService("Players")
 local PFS = game:GetService("PathfindingService")
 local VIM = game:GetService("VirtualInputManager")
@@ -203,13 +234,33 @@ local Killer, Survivor = false, false
 
 -- Danh sách killer nguy hiểm
 local DangerousKillers = {
-    ["Jason"] = true,
+    ["Slasher"] = true,
     ["1x1x1x1"] = true,
     ["c00lkidd"] = true,
     ["Noli"] = true,
     ["JohnDoe"] = true,
     ["Quest666"] = true
 }
+
+-- 🟢 Danh sách survivor ưu tiên (chỉ khi là model trong Survivors)
+local PriorityList = {
+    ["0206octavio"] = true
+}
+
+-- Hàm lấy survivor ưu tiên
+local function GetPriorityTarget(survivorsFolder)
+    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+        if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+            if PriorityList[survivor.Name] then
+                local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    return survivor
+                end
+            end
+        end
+    end
+    return nil
+end
 
 -- Hàm kiểm tra có killer nguy hiểm gần generator không
 local function isKillerNearGenerator(generatorPos, distance)
@@ -261,8 +312,6 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
         end
     end)
 
-    -- ⚠️ ĐÃ XOÁ CHỨC NĂNG AUTO SPRINT
-
     -- Xác định mình là Killer hay Survivor
     task.spawn(function()
         while _G.AutoFarm do
@@ -286,15 +335,19 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
 
         while _G.AutoFarm do
             if Killer then
-                -- Theo dõi & tấn công Survivor
-                local target = nil
-                for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-                    if survivor:IsA("Model")
-                    and survivor:FindFirstChild("HumanoidRootPart")
-                    and survivor:FindFirstChild("Humanoid")
-                    and survivor.Humanoid.Health > 0 then
-                        target = survivor
-                        break
+                -- Ưu tiên target
+                local target = GetPriorityTarget(survivorsFolder)
+
+                -- Nếu không có thì chọn survivor bất kỳ
+                if not target then
+                    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+                        if survivor:IsA("Model")
+                        and survivor:FindFirstChild("HumanoidRootPart")
+                        and survivor:FindFirstChild("Humanoid")
+                        and survivor.Humanoid.Health > 0 then
+                            target = survivor
+                            break
+                        end
                     end
                 end
 
@@ -309,7 +362,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
 
                             local character = LP.Character
                             if character and character:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
-                                character:PivotTo(target.HumanoidRootPart.CFrame)
+                                character:PivotTo(target.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5))
                             end
                             task.wait(0.1)
                         end
@@ -380,10 +433,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                             end
 
                             if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") then
-                                -- ✅ Teleport cao hơn để tránh kẹt
-                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 3, 0)))
-
-                                -- ✅ Giảm tốc độ teleport
+                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 5, 0))) -- chỉnh độ cao khi player teleport
                                 task.wait(0.75)
 
                                 local prompt = gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt")
@@ -391,7 +441,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                                     prompt.HoldDuration = 0
                                     prompt.RequiresLineOfSight = false
                                     prompt.MaxActivationDistance = 99999
-                                    task.wait(0.15) -- delay an toàn hơn
+                                    task.wait(0.15)
 
                                     pcall(function()
                                         prompt:InputHoldBegin()
@@ -408,7 +458,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                                                 gen.Remotes.RE:FireServer()
                                             end
                                         end)
-                                        task.wait(1.5)
+                                        task.wait(0.75) -- tốc độ mở generator
                                         counter += 1
                                         if counter >= 10 or not isInGame then break end
                                     end
@@ -572,13 +622,257 @@ end)
 
 -- Tabs.Main
 
-
-    Tabs.Main:AddSection("↳ Instruct")
-
 Tabs.Main:AddParagraph({
     Title = "How to Use Script :",
     Content = "1: Must adjust the slider to increase or decrease\n2: Must not be min or max because it will not work\n3: Then turn on the buttons to use those functions\n\n|| Like, Share And Subscribe For SLK gaming ||"
 })
+
+
+
+
+    Tabs.Main:AddSection("↳ Shedletsky")
+
+
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
+
+    -- Vars
+    local enabled = false
+    local cooldown = false
+    local lastTarget = nil
+    local maxDistance = 5 -- Khoảng cách mặc định
+    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    -- Toggle
+    local SlashToggle = Tabs.Main:AddToggle("SlashToggle", {
+        Title = "Auto Slash",
+        Default = false
+    })
+
+    SlashToggle:OnChanged(function(Value)
+        enabled = Value
+    end)
+
+    -- Slider cho khoảng cách
+    local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
+        Title = "Distance",
+        Min = 1,
+        Max = 50,
+        Default = 5,
+        Rounding = 1,
+        ValueName = "studs"
+    })
+
+    DistanceSlider:OnChanged(function(Value)
+        maxDistance = Value
+    end)
+
+    -- Helper (kiểm tra đứng sau lưng thay vì trước mặt)
+    local function isBehindTarget(hrp, targetHRP)
+        local direction = targetHRP.CFrame.LookVector
+        local toPlayer = (hrp.Position - targetHRP.Position)
+        local distance = toPlayer.Magnitude
+        local isBehind = toPlayer:Dot(direction) < -0.5
+        return distance <= maxDistance and isBehind
+    end
+
+    -- Main loop
+    RunService.Heartbeat:Connect(function()
+        if not enabled or cooldown then return end
+
+        local char = lp.Character
+        if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+        local hrp = char.HumanoidRootPart
+
+        for _, name in ipairs(killerNames) do
+            local killer = killersFolder:FindFirstChild(name)
+            if killer and killer:FindFirstChild("HumanoidRootPart") then
+                local kHRP = killer.HumanoidRootPart
+
+                if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
+                    cooldown = true
+                    lastTarget = killer
+
+                    -- Teleport ra sau lưng
+                    local backPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
+                    hrp.CFrame = CFrame.new(backPos, kHRP.Position)
+
+                    -- Giữ vị trí và spam skill trong 0.7s
+                    local start = tick()
+                    local connection
+                    connection = RunService.Heartbeat:Connect(function()
+                        if not (char and char.Parent and kHRP and kHRP.Parent) then
+                            if connection then connection:Disconnect() end
+                            return
+                        end
+                        if tick() - start >= 0.7 then
+                            if connection then connection:Disconnect() end
+                            task.delay(2, function()
+                                cooldown = false
+                                lastTarget = nil
+                            end)
+                            return
+                        end
+
+                        -- Luôn giữ ở sau lưng
+                        local back = kHRP.Position - (kHRP.CFrame.LookVector * 2)
+                        hrp.CFrame = CFrame.new(back, kHRP.Position)
+
+                        -- Kích hoạt skill Slash liên tục
+                        remote:FireServer("UseActorAbility", "Slash")
+                    end)
+
+                    break
+                end
+            end
+        end
+    end)
+end
+
+
+
+
+
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
+
+    -- Vars
+    local healEnabled = false
+    local healHPThreshold = 50
+    local healDistance = 50
+    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+
+    -- UI
+    local HealToggle = Tabs.Main:AddToggle("HealToggle", {
+        Title = "Auto Heal",
+        Default = false
+    })
+    HealToggle:OnChanged(function(v) healEnabled = v end)
+
+    local HealHPSlider = Tabs.Main:AddSlider("HealHPSlider", {
+        Title = "Heal HP",
+        Min = 1, Max = 100, Default = 50,
+        Rounding = 0, ValueName = "HP"
+    })
+    HealHPSlider:OnChanged(function(v) healHPThreshold = v end)
+
+    local HealDistanceSlider = Tabs.Main:AddSlider("HealDistanceSlider", {
+        Title = "Distance",
+        Min = 1, Max = 150, Default = 50,
+        Rounding = 0, ValueName = "studs"
+    })
+    HealDistanceSlider:OnChanged(function(v) healDistance = v end)
+
+    -- Helpers -------------------------------------------------------------
+
+    local function getPlayersFolders()
+        local pf = workspace:FindFirstChild("Players")
+        if not pf then return nil, nil, nil end
+        return pf, pf:FindFirstChild("Killers"), pf:FindFirstChild("Survivors")
+    end
+
+    -- model này có phải của LocalPlayer không?
+    local function belongsToMe(m)
+        if not (m and m:IsA("Model")) then return false end
+        if m:GetAttribute("Username") == lp.Name then return true end
+        local UsernameSV = m:FindFirstChild("Username")
+        if UsernameSV and typeof(UsernameSV.Value) == "string" and UsernameSV.Value == lp.Name then return true end
+        local Owner = m:FindFirstChild("Owner") or m:FindFirstChild("Player")
+        if Owner and Owner.Value == lp then return true end
+        local uidAttr = m:GetAttribute("UserId")
+        if uidAttr and tonumber(uidAttr) == lp.UserId then return true end
+        -- đôi khi model đặt đúng tên player
+        if m.Name == lp.Name then return true end
+        return false
+    end
+
+    -- tìm model Shedletsky của CHÍNH BẠN ở mọi nơi
+    local function getMyShedletsky()
+        local pf, killersFolder, survivorsFolder = getPlayersFolders()
+
+        local candidates = {}
+
+        local function scan(container)
+            if not container then return end
+            for _, d in ipairs(container:GetDescendants()) do
+                if d:IsA("Model") and d.Name == "Shedletsky" and d:FindFirstChild("Humanoid") and d:FindFirstChild("HumanoidRootPart") then
+                    if belongsToMe(d) then table.insert(candidates, d) end
+                end
+            end
+        end
+
+        scan(killersFolder)
+        scan(survivorsFolder)
+        scan(workspace) -- fallback nếu game đặt ở root/nhánh khác
+
+        if #candidates == 0 then return nil, nil, nil end
+
+        -- nếu có nhiều, chọn cái gần lp.Character nhất (ổn định hơn)
+        local basePos
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            basePos = lp.Character.HumanoidRootPart.Position
+        end
+
+        local best, bestDist = candidates[1], math.huge
+        if basePos then
+            for _, m in ipairs(candidates) do
+                local hrp = m:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local d = (hrp.Position - basePos).Magnitude
+                    if d < bestDist then best, bestDist = m, d end
+                end
+            end
+        end
+
+        local hum = best:FindFirstChildOfClass("Humanoid")
+        local hrp = best:FindFirstChild("HumanoidRootPart")
+        return best, hum, hrp
+    end
+
+    local function getNearestKillerDist(fromHRP, myModel)
+        local _, killersFolder = getPlayersFolders()
+        if not (killersFolder and fromHRP) then return math.huge end
+        local nearest = math.huge
+        for _, k in ipairs(killersFolder:GetChildren()) do
+            if k ~= myModel then -- tránh đo tới chính mình nếu mình cũng ở Killers
+                local khrp = k:FindFirstChild("HumanoidRootPart")
+                if khrp then
+                    local d = (fromHRP.Position - khrp.Position).Magnitude
+                    if d < nearest then nearest = d end
+                end
+            end
+        end
+        return nearest
+    end
+
+    -- Main loop ----------------------------------------------------------
+    RunService.Heartbeat:Connect(function()
+        if not healEnabled then return end
+
+        -- CHỈ chạy khi bạn là Shedletsky
+        local myModel, myHumanoid, myHRP = getMyShedletsky()
+        if not (myModel and myHumanoid and myHRP) then return end
+        if myHumanoid.Health <= 0 then return end
+
+        -- khoảng cách từ Shedletsky (bạn) → Killers
+        local nearestDist = getNearestKillerDist(myHRP, myModel)
+
+        -- Heal khi HP thấp và ĐỦ XA killers (>=)
+        if myHumanoid.Health <= healHPThreshold and nearestDist >= healDistance then
+            pcall(function()
+                remote:FireServer("UseActorAbility", "FriedChicken")
+            end)
+        end
+    end)
+end
 
 
     Tabs.Main:AddSection("↳ Chance")
@@ -620,7 +914,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Config
 local aimDuration = 1.7
-local aimTargets = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+local aimTargets = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
 local trackedAnimations = {
     ["103601716322988"] = true,
     ["133491532453922"] = true,
@@ -775,7 +1069,7 @@ do
     local lastTarget = nil
     local maxDistance = 5 -- Khoảng cách mặc định
     local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-    local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     -- Toggle
@@ -1248,7 +1542,7 @@ do
             local charges = punchBtn and punchBtn:FindFirstChild("Charges")
 
             if charges and charges.Text == "1" then
-                local killerNames = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}
+                local killerNames = {"c00lkidd", "Slasher", "JohnDoe", "1x1x1x1", "Noli"}
                 for _, name in ipairs(killerNames) do
                     local killer = workspace:FindFirstChild("Players")
                         and workspace.Players:FindFirstChild("Killers")
@@ -1444,7 +1738,7 @@ local AllowedPlayers = {
 }
 
 local AllowedKillers = {
-    ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
     ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
 }
 
@@ -1572,65 +1866,79 @@ end)
 
 
 
-local InfStaminaEnabled = false
-local staminaLoop
-local StaminaModule
 
--- Thử lấy module an toàn
-pcall(function()
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local path = ReplicatedStorage:FindFirstChild("Systems")
-        and ReplicatedStorage.Systems:FindFirstChild("Character")
-        and ReplicatedStorage.Systems.Character:FindFirstChild("Game")
-        and ReplicatedStorage.Systems.Character.Game:FindFirstChild("Sprinting")
 
-    if path then
-        StaminaModule = require(path)
-    end
-end)
 
--- Hàm hồi stamina an toàn
-local function restoreStamina()
-    if not StaminaModule then return end
-    if StaminaModule.Stamina and StaminaModule.MaxStamina then
-        StaminaModule.Stamina = StaminaModule.MaxStamina
-        if StaminaModule.StaminaChanged and typeof(StaminaModule.StaminaChanged.Fire) == "function" then
-            StaminaModule.StaminaChanged:Fire()
-        end
-    end
+local InfStaminaEnabled = false  
+local staminaLoop  
+local StaminaModule  
+  
+-- Thử lấy module an toàn  
+pcall(function()  
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")  
+    local path = ReplicatedStorage:FindFirstChild("Systems")  
+        and ReplicatedStorage.Systems:FindFirstChild("Character")  
+        and ReplicatedStorage.Systems.Character:FindFirstChild("Game")  
+        and ReplicatedStorage.Systems.Character.Game:FindFirstChild("Sprinting")  
+  
+    if path then  
+        StaminaModule = require(path)  
+    end  
+end)  
+  
+-- Hàm hồi stamina an toàn  
+local function restoreStamina()  
+    if not StaminaModule then return end  
+
+    local maxStamina = StaminaModule.MaxStamina or 100  
+    if StaminaModule.Stamina then  
+        -- Nếu module có hàm "SetStamina" thì dùng  
+        if typeof(StaminaModule.SetStamina) == "function" then  
+            StaminaModule:SetStamina(maxStamina)  
+
+        -- Nếu có hàm "UpdateStamina" thì dùng  
+        elseif typeof(StaminaModule.UpdateStamina) == "function" then  
+            StaminaModule:UpdateStamina(maxStamina)  
+
+        -- Nếu không có thì set trực tiếp  
+        else  
+            StaminaModule.Stamina = maxStamina  
+        end  
+    end  
+end  
+  
+-- Chỉ tạo toggle nếu module tồn tại  
+if StaminaModule then  
+    Tabs.Player:AddToggle("InfStamina", {  
+        Title = "Infinite Stamina",  
+        Default = false  
+    }):OnChanged(function(value)  
+        -- luôn bọc trong pcall để Fluent không báo "Callback error"  
+        local ok = pcall(function()  
+            InfStaminaEnabled = value  
+            if StaminaModule.StaminaLossDisabled ~= nil then  
+                StaminaModule.StaminaLossDisabled = value  
+            end  
+  
+            if value then  
+                restoreStamina()  
+                if not staminaLoop then  
+                    staminaLoop = task.spawn(function()  
+                        while InfStaminaEnabled do  
+                            task.wait(0.01)  
+                            restoreStamina()  
+                        end  
+                        staminaLoop = nil  
+                    end)  
+                end  
+            end  
+        end)  
+    end)  
+else  
+    warn("[InfStamina] Sprinting module not found, toggle disabled.")  
 end
 
--- Chỉ tạo toggle nếu module tồn tại
-if StaminaModule then
-    Tabs.Player:AddToggle("InfStamina", {
-        Title = "Infinite Stamina",
-        Default = false
-    }):OnChanged(function(value)
-        -- luôn bọc trong pcall để Fluent không báo "Callback error"
-        local ok = pcall(function()
-            InfStaminaEnabled = value
-            if StaminaModule.StaminaLossDisabled ~= nil then
-                StaminaModule.StaminaLossDisabled = value
-            end
 
-            if value then
-                restoreStamina()
-                if not staminaLoop then
-                    staminaLoop = task.spawn(function()
-                        while InfStaminaEnabled do
-                            task.wait(0.5)
-                            restoreStamina()
-                        end
-                        staminaLoop = nil
-                    end)
-                end
-            end
-        end)
-        -- Không in warn nữa, im lặng bỏ qua nếu có lỗi
-    end)
-else
-    warn("[InfStamina] Sprinting module not found, toggle disabled.")
-end
 
 
     Tabs.Player:AddSection("↳ Hitbox")
@@ -1650,7 +1958,7 @@ local targetModels = {
     ["Builderman"] = true,
     ["Taph"] = true,
     ["Dusekkar"] = true,
-    ["Jason"] = true,
+    ["Slasher"] = true,
     ["1x1x1x1"] = true,
     ["c00lkidd"] = true,
     ["Noli"] = true,
@@ -1817,6 +2125,63 @@ Tabs.Player:AddToggle("PlayerSpeedToggle", {
 end)
 
 
+
+    Tabs.Player:AddSection("↳ Teleport Speed")
+
+
+-- === Teleport Speed Setup ===
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+local defaultSpeed = 50
+local maxSpeed = 300
+local currentSpeed = defaultSpeed
+local teleportSpeedEnabled = false
+
+-- Cập nhật lại khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = Character:WaitForChild("Humanoid")
+    HRP = Character:WaitForChild("HumanoidRootPart")
+end)
+
+-- Loop để dịch chuyển (teleport speed)
+RunService.Heartbeat:Connect(function(dt)
+    if teleportSpeedEnabled and Humanoid and HRP then
+        if Humanoid.MoveDirection.Magnitude > 0 then
+            local moveDir = Humanoid.MoveDirection.Unit
+            HRP.CFrame = HRP.CFrame + (moveDir * (currentSpeed * dt))
+        end
+    end
+end)
+
+-- === GUI Bindings ===
+-- Slider Teleport Speed
+Tabs.Player:AddSlider("TeleportSpeedSlider", {
+    Title = "Set Speed",
+    Min = 1,
+    Max = maxSpeed,
+    Default = defaultSpeed,
+    Rounding = 1,
+}):OnChanged(function(value)
+    currentSpeed = value
+end)
+
+-- Toggle bật/tắt Teleport Speed
+Tabs.Player:AddToggle("TeleportSpeedToggle", {
+    Title = "Teleport Speed",
+    Default = false,
+}):OnChanged(function(enabled)
+    teleportSpeedEnabled = enabled
+end)
+
+     
+
 -- Tabs.Visual
 
 
@@ -1959,7 +2324,7 @@ local allowedModelsWhite = {
 }
 
 local allowedModelsRed = {
-    ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
     ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
 }
 
@@ -2360,136 +2725,6 @@ end)
 
 
 
-
-    Tabs.Misc:AddSection("↳ Bypass")
-
-local antiAFKCons = {}
-
--- Chỉ tạo toggle nếu executor có getconnections
-if getconnections then
-    Tabs.Misc:AddToggle("AntiAFK", {
-        Title = "Anti-AFK",
-        Default = true
-    }):OnChanged(function(state)
-        local idleCons = getconnections(game.Players.LocalPlayer.Idled)
-        
-        if state then
-            -- Lưu & disable
-            for _, c in ipairs(idleCons) do
-                antiAFKCons[c] = true
-                c:Disable()
-            end
-            print("[AntiAFK] Đã bật, bạn sẽ không bị kick AFK.")
-        else
-            -- Enable lại
-            for c,_ in pairs(antiAFKCons) do
-                if c and c.Enable then
-                    pcall(function() c:Enable() end)
-                end
-            end
-            antiAFKCons = {}
-            print("[AntiAFK] Đã tắt, Roblox sẽ xử lý AFK bình thường.")
-        end
-    end)
-else
-    warn("[AntiAFK] Executor không hỗ trợ getconnections, toggle bị vô hiệu.")
-end
-
-
-
-
-
-Tabs.Misc:AddToggle("AntiReportScreenshot", {
-    Title = "Anti-Ban [100%]",
-    Default = true,
-    Callback = function(state)
-        -- Dùng biến chung để quản lý vòng lặp
-        if not shared.AntiBanLoop then
-            shared.AntiBanLoop = {running = false, hooked = false}
-        end
-        local loopData = shared.AntiBanLoop
-
-        local function hookOnce()
-            -- Hook FindFirstChild
-            if not loopData.hookedFind then
-                local oldFind = workspace.FindFirstChild
-                if typeof(oldFind) == "function" and hookfunction then
-                    hookfunction(oldFind, function(self, ...)
-                        local args = {...}
-                        if tostring(args[1]):lower():find("screenshot") then
-                            return nil
-                        end
-                        return oldFind(self, unpack(args))
-                    end)
-                    loopData.hookedFind = true
-                end
-            end
-
-            -- Hook HTTP request
-            if not loopData.hookedRequest then
-                local oldRequest = (syn and syn.request) or request or http_request
-                if hookfunction and typeof(oldRequest) == "function" then
-                    hookfunction(oldRequest, function(req)
-                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                            return {StatusCode = 200, Body = "Blocked"}
-                        end
-                        return oldRequest(req)
-                    end)
-                    loopData.hookedRequest = true
-                end
-            end
-        end
-
-        local function setFlagsOff()
-            local flags = {
-                "AbuseReportScreenshot",
-                "AbuseReportScreenshotPercentage",
-                "AbuseReportEnabled",
-                "ReportAbuseMenu",
-                "EnableAbuseReportScreenshot"
-            }
-            for _, flag in ipairs(flags) do
-                if typeof(setfflag) == "function" then
-                    pcall(function()
-                        setfflag(flag, "False")
-                    end)
-                end
-            end
-            if typeof(setfflag) == "function" then
-                setfflag("AbuseReportScreenshotPercentage", "0")
-            end
-        end
-
-        local function setFlagsOn()
-            if typeof(setfflag) == "function" then
-                setfflag("AbuseReportScreenshot", "True")
-                setfflag("AbuseReportScreenshotPercentage", "100")
-            end
-        end
-
-        if state then
-            hookOnce()
-            setFlagsOff()
-            loopData.running = true
-            task.spawn(function()
-                while loopData.running do
-                    setFlagsOff()
-                    task.wait(0.01) -- tốc độ siêu nhanh
-                end
-            end)
-            print("[Anti-Ban] 🛡️ FAST protection ENABLED!")
-        else
-            loopData.running = false
-            setFlagsOn()
-            print("[Anti-Ban] ⚠️ Protection DISABLED.")
-        end
-    end
-})
-
-
-
-
-
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
@@ -2555,6 +2790,328 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 })
 
 
+    Tabs.Misc:AddSection("↳ Bypass")
+
+local antiAFKCons = {}
+
+-- Chỉ tạo toggle nếu executor có getconnections
+if getconnections then
+    Tabs.Misc:AddToggle("AntiAFK", {
+        Title = "Anti-AFK",
+        Default = true
+    }):OnChanged(function(state)
+        local idleCons = getconnections(game.Players.LocalPlayer.Idled)
+        
+        if state then
+            -- Lưu & disable
+            for _, c in ipairs(idleCons) do
+                antiAFKCons[c] = true
+                c:Disable()
+            end
+            print("[AntiAFK] Đã bật, bạn sẽ không bị kick AFK.")
+        else
+            -- Enable lại
+            for c,_ in pairs(antiAFKCons) do
+                if c and c.Enable then
+                    pcall(function() c:Enable() end)
+                end
+            end
+            antiAFKCons = {}
+            print("[AntiAFK] Đã tắt, Roblox sẽ xử lý AFK bình thường.")
+        end
+    end)
+else
+    warn("[AntiAFK] Executor không hỗ trợ getconnections, toggle bị vô hiệu.")
+end
+
+
+
+
+
+Tabs.Misc:AddToggle("AntiReportScreenshot", {
+    Title = "Anti-Ban V2",
+    Default = true,
+    Callback = function(state)
+        if not shared.AntiBanLoop then
+            shared.AntiBanLoop = {running = false, hooked = false}
+        end
+        local loopData = shared.AntiBanLoop
+
+        -- 🛡️ Function Anti Chat + Screenshot Logger (Code 1)
+        local function AntiChatLogger()
+            local StarterGui = game:GetService("StarterGui")
+            local Players = game:GetService("Players")
+            local Player = Players.LocalPlayer
+            local PlayerScripts = Player:WaitForChild("PlayerScripts")
+
+            local ChatMain = PlayerScripts:FindFirstChild("ChatMain", true)
+            if ChatMain then
+                local PostMessage = require(ChatMain).MessagePosted
+                if PostMessage then
+                    local OldHook
+                    OldHook = hookfunction(PostMessage.fire, function(self, Message)
+                        if not checkcaller() and self == PostMessage then
+                            return -- block chat logger
+                        end
+                        return OldHook(self, Message)
+                    end)
+                end
+            end
+            -- Disable abuse screenshot flags
+            if setfflag then
+                setfflag("AbuseReportScreenshot", "False")
+                setfflag("AbuseReportScreenshotPercentage", "0")
+            end
+        end
+
+        -- 🛡️ Function Hook Anti Report (Code 2)
+        local function hookOnce()
+            if not loopData.hookedFind then
+                local oldFind = workspace.FindFirstChild
+                if typeof(oldFind) == "function" and hookfunction then
+                    hookfunction(oldFind, function(self, ...)
+                        local args = {...}
+                        if tostring(args[1]):lower():find("screenshot") then
+                            return nil
+                        end
+                        return oldFind(self, unpack(args))
+                    end)
+                    loopData.hookedFind = true
+                end
+            end
+
+            if not loopData.hookedRequest then
+                local oldRequest = (syn and syn.request) or request or http_request
+                if hookfunction and typeof(oldRequest) == "function" then
+                    hookfunction(oldRequest, function(req)
+                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                            return {StatusCode = 200, Body = "Blocked"}
+                        end
+                        return oldRequest(req)
+                    end)
+                    loopData.hookedRequest = true
+                end
+            end
+        end
+
+        local function setFlagsOff()
+            local flags = {
+                "AbuseReportScreenshot",
+                "AbuseReportScreenshotPercentage",
+                "AbuseReportEnabled",
+                "ReportAbuseMenu",
+                "EnableAbuseReportScreenshot"
+            }
+            for _, flag in ipairs(flags) do
+                if typeof(setfflag) == "function" then
+                    pcall(function()
+                        setfflag(flag, "False")
+                    end)
+                end
+            end
+            if typeof(setfflag) == "function" then
+                setfflag("AbuseReportScreenshotPercentage", "0")
+            end
+        end
+
+        local function setFlagsOn()
+            if typeof(setfflag) == "function" then
+                setfflag("AbuseReportScreenshot", "True")
+                setfflag("AbuseReportScreenshotPercentage", "100")
+            end
+        end
+
+        -- 🟢 Khi bật
+        if state then
+            hookOnce()
+            AntiChatLogger()
+            setFlagsOff()
+            loopData.running = true
+            task.spawn(function()
+                while loopData.running do
+                    setFlagsOff()
+                    task.wait(0.05)
+                end
+            end)
+            print("[Anti-Ban] 🛡️ Protection ENABLED!")
+        else
+            -- 🔴 Khi tắt
+            loopData.running = false
+            setFlagsOn()
+            print("[Anti-Ban] ⚠️ Protection DISABLED.")
+        end
+    end
+})
+
+
+
+
+
+
+do
+-- 🛡️ Anti Noclip Script với Toggle (Fluent UI Tabs.Misc)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalizationService = game:GetService("LocalizationService")
+local StarterGui = game:GetService("StarterGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Character, HumanoidRootPart, Humanoid = nil, nil, nil
+
+local AntiNoclipEnabled = false
+local stuckTime = 0
+local requiredStuckSeconds = 1
+
+-- chống reset liên tiếp & bỏ qua kiểm tra ngay khi spawn
+local lastResetAt = 0
+local resetCooldown = 1.5 -- giây
+local lastSpawnAt = 0
+local spawnGrace = 1 -- giây
+
+-- ========= Notify helper (Fluent -> fallback SetCore) =========
+local function getLanguage()
+    local lang = LocalizationService.RobloxLocaleId or "en-us"
+    if string.sub(lang,1,2):lower() == "vi" then return "vi" end
+    return "en"
+end
+
+local function Notify(msg)
+    -- thử Fluent trước (nếu có)
+    local okFluent = false
+    pcall(function()
+        if Fluent and typeof(Fluent) == "table" and Fluent.Notify then
+            Fluent:Notify({
+                Title = "🛡️ Anti Noclip",
+                Content = msg,
+                Duration = 6
+            })
+            okFluent = true
+        end
+    end)
+    if okFluent then return end
+    -- fallback SetCore
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "🛡️ Anti Noclip",
+            Text = msg,
+            Duration = 6
+        })
+    end)
+end
+
+-- ========= Character wiring =========
+local function SetupCharacter(char)
+    Character = char
+    HumanoidRootPart = char:WaitForChild("HumanoidRootPart", 5)
+    Humanoid = char:WaitForChild("Humanoid", 5)
+    lastSpawnAt = os.clock()
+    stuckTime = 0
+end
+
+if LocalPlayer.Character then
+    SetupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(SetupCharacter)
+
+-- ========= Kiểm tra kẹt bên trong tường (không tính đứng sát) =========
+local CoreNames = {"HumanoidRootPart","UpperTorso","LowerTorso","Torso","Head"}
+
+local function PartInsideOther(part, other)
+    -- Kiểm tra vị trí part có nằm trong thể tích other (CanCollide) không
+    local rel = other.CFrame:PointToObjectSpace(part.Position)
+    local half = other.Size * 0.5
+    local margin = 0.03 -- tránh biên
+    return math.abs(rel.X) < (half.X - margin)
+       and math.abs(rel.Y) < (half.Y - margin)
+       and math.abs(rel.Z) < (half.Z - margin)
+end
+
+local function IsInsideWall()
+    if not Character or not HumanoidRootPart then return false end
+    for _, name in ipairs(CoreNames) do
+        local p = Character:FindFirstChild(name)
+        if p and p:IsA("BasePart") then
+            -- chỉ coi là kẹt khi *Ở BÊN TRONG* vật thể CanCollide
+            local touching = p:GetTouchingParts()
+            for _, t in ipairs(touching) do
+                if t and t:IsA("BasePart")
+                    and t.CanCollide
+                    and t.Transparency < 1
+                    and not t:IsDescendantOf(Character)
+                then
+                    if PartInsideOther(p, t) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- ========= Loop =========
+RunService.Heartbeat:Connect(function(dt)
+    if not AntiNoclipEnabled then return end
+    if not Character or not HumanoidRootPart or not Humanoid then return end
+
+    -- bỏ qua ngay sau spawn & trong thời gian cooldown sau khi reset
+    local now = os.clock()
+    if now - lastSpawnAt < spawnGrace then return end
+    if now - lastResetAt < resetCooldown then return end
+
+    if IsInsideWall() then
+        stuckTime += dt
+        if stuckTime >= requiredStuckSeconds then
+            -- reset 1 lần, sau đó có cooldown để script tiếp tục chạy được ở lần sau
+            lastResetAt = now
+            stuckTime = 0
+
+            -- reset nhân vật
+            if Humanoid and Humanoid.Health > 0 then
+                Humanoid.Health = 0
+            end
+
+            -- thông báo theo ngôn ngữ
+            local lang = getLanguage()
+            if lang == "vi" then
+                Notify("Hãy cẩn thận nếu không bạn sẽ bị banned!")
+            else
+                Notify("Be careful or you might get banned!")
+            end
+        end
+    else
+        stuckTime = 0
+    end
+end)
+
+-- =========================
+-- 🔘 Toggle ở Fluent Tabs.Misc
+-- =========================
+Tabs.Misc:AddToggle("AntiNoclip", {
+    Title = "Anti Noclip",
+    Default = true,
+    Callback = function(Value)
+        AntiNoclipEnabled = Value
+        -- báo nhanh khi bật/tắt (không bắt buộc)
+        local lang = getLanguage()
+        if Value then
+            if lang == "vi" then
+                Notify("Anti Noclip: BẬT")
+            else
+                Notify("Anti Noclip: ON")
+            end
+        else
+            if lang == "vi" then
+                Notify("Anti Noclip: TẮT")
+            else
+                Notify("Anti Noclip: OFF")
+            end
+        end
+    end
+})
+end
+
+
 
 
 -- === SafeGenTeleport (Anti Killers V4 Fixed) ===
@@ -2572,8 +3129,10 @@ local AllowedPlayers = {
 
 -- Danh sách Killers
 local DangerousKillers = {
-    Jason = true, ["1x1x1x1"] = true, c00lkidd = true,
-    Noli = true, JohnDoe = true, Quest666 = true
+    Slasher = true, ["1x1x1x1"] = true, c00lkidd = true,
+    Noli = true, JohnDoe = true, Quest666 = true,
+    PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
+    ["1x1x1x1Zombie"] = true
 }
 
 -- Danh sách Clones (coi như Killers)
@@ -2632,7 +3191,7 @@ local function teleportToSafeGenerator()
     end
 
     if bestGen then
-        local offset = CFrame.new(0, 3, -3) -- đứng cao hơn 3 studs, lùi ra sau 3 studs
+        local offset = CFrame.new(0, 5, -3) -- đứng cao hơn 5 studs, lùi ra sau 3 studs
         local goalCFrame = bestGen:GetPivot() * offset
         character:PivotTo(goalCFrame)
         print("✅ Teleported safely to generator:", bestGen.Name)
@@ -2681,6 +3240,25 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
         SafeGenRunning = false
         SafeGenThread = nil
         print("[SafeGenTeleport] Đã tắt.")
+    end
+end)
+
+
+
+
+
+-- Nút Auto Teleport Cao (1 lần duy nhất khi bật)
+Tabs.Misc:AddToggle("AutoTeleportHigh", {
+    Title = "Anti Bug",
+    Default = true
+})
+:OnChanged(function(Value)
+    if Value then
+        local char = LP.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            -- Teleport lên cao thêm 10 studs
+            char:PivotTo(char.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0))
+        end
     end
 end)
 
