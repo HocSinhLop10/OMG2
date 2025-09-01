@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.0",
+    SubTitle = "Version 4.0.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -362,7 +362,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
 
                             local character = LP.Character
                             if character and character:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
-                                character:PivotTo(target.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5))
+                                character:PivotTo(target.HumanoidRootPart.CFrame)
                             end
                             task.wait(0.1)
                         end
@@ -424,7 +424,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
 
                             -- Lấy vị trí phía trước generator
                             local genCFrame = gen:GetPivot()
-                            local goalPos = (genCFrame * CFrame.new(0, 0, -3)).Position
+                            local goalPos = (genCFrame * CFrame.new(0, 0, -4)).Position
 
                             -- Anti-Killer check
                             if isKillerNearGenerator(goalPos, 50) then
