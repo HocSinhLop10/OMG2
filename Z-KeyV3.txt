@@ -312,7 +312,7 @@ GetKeyBtn.MouseButton1Click:Connect(function()
     saveData({
         url = pick.url,
         key = pick.key,
-        expire = now + 3*60*60, -- Đoạn chỉnh thời gian free key
+        expire = now + 24*60*60, -- Đoạn chỉnh thời gian free key
         usedKeys = usedKeys,
     })
 
