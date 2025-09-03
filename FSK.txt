@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.3",
+    SubTitle = "Version 4.0.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2305,41 +2305,75 @@ local drawingsClone = {}
 local espConnectionClone
 local addedConnClone, removedConnClone
 
--- Tạo ESP + Highlight
-local function createESP(model, drawings, color)
-    if not model or drawings[model] then return end
-    local hrp = model:FindFirstChild("HumanoidRootPart")
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    if not hrp or not humanoid then return end
+-- Tạo/khôi phục ESP + Highlight (tự hồi phục nếu mất)
+local function createOrRepairESP(model, drawings, color)
+    if not model then return end
 
-    -- Text
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Visible = false
-    text.Color = color
+    local data = drawings[model]
+    if not data then
+        -- Chỉ khởi tạo khi có HRP + Humanoid
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        local humanoid = model:FindFirstChildOfClass("Humanoid")
+        if not hrp or not humanoid then return end
 
-    -- Highlight
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = model
-    highlight.FillColor = color
-    highlight.OutlineColor = color
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Enabled = false
-    highlight.Parent = model
+        local text = Drawing.new("Text")
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.Visible = false
+        text.Color = color
 
-    drawings[model] = {text = text, humanoid = humanoid, highlight = highlight}
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+
+        drawings[model] = { text = text, humanoid = humanoid, highlight = highlight }
+        return
+    end
+
+    -- Hồi phục nếu mất thành phần
+    if not data.text then
+        local text = Drawing.new("Text")
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.Visible = false
+        text.Color = color
+        data.text = text
+    end
+    if (not data.highlight) or (not data.highlight.Parent) then
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+        data.highlight = highlight
+    else
+        -- Đảm bảo luôn bám đúng model
+        data.highlight.Adornee = model
+        data.highlight.Enabled = true
+        data.highlight.FillColor = color
+        data.highlight.OutlineColor = color
+    end
 end
 
 -- Xoá ESP
 local function removeESP(model, drawings)
     local data = drawings[model]
     if data then
-        if data.text then pcall(function() data.text:Remove() end) end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        pcall(function() if data.text then data.text:Remove() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
     end
     drawings[model] = nil
 end
@@ -2348,7 +2382,7 @@ end
 local function scanWorkspaceForAllowed(allowedList, drawings, color)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedList[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
-            createESP(obj, drawings, color)
+            createOrRepairESP(obj, drawings, color)
         end
     end
 end
@@ -2356,36 +2390,52 @@ end
 -- 🔥 Bắt đầu ESP Clone
 function startESPClone()
     if espConnectionClone then return end
-    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0)) -- màu xanh lá
+
+    local COLOR = Color3.fromRGB(0, 255, 0) -- xanh lá
+    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, COLOR)
 
     espConnectionClone = RunService.RenderStepped:Connect(function()
         for model, data in pairs(drawingsClone) do
-            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
+            local humanoid = data.humanoid
+            -- Tự hồi phục nếu mất highlight/text
+            createOrRepairESP(model, drawingsClone, COLOR)
+            data = drawingsClone[model]
+
             if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
                 local hrp = model.HumanoidRootPart
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                text.Position = Vector2.new(pos.X, pos.Y)
-                text.Visible = onScreen
-                highlight.Enabled = true
+
+                if data.text then
+                    data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                    data.text.Position = Vector2.new(pos.X, pos.Y)
+                    data.text.Visible = onScreen
+                end
+
+                if data.highlight then
+                    data.highlight.Enabled = true
+                    data.highlight.Adornee = model
+                end
             else
-                text.Visible = false
-                if highlight then highlight.Enabled = false end
+                if data.text then data.text.Visible = false end
+                if data.highlight then data.highlight.Enabled = false end
             end
         end
     end)
 
     addedConnClone = workspace.DescendantAdded:Connect(function(obj)
+        -- Bắt cả khi add vào sâu trong model
         local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
         if model and allowedModelsClone[model.Name] and model:FindFirstChild("HumanoidRootPart") then
-            createESP(model, drawingsClone, Color3.fromRGB(0, 255, 0))
+            createOrRepairESP(model, drawingsClone, COLOR)
         end
     end)
 
     removedConnClone = workspace.DescendantRemoving:Connect(function(obj)
-        if obj:IsA("Model") and drawingsClone[obj] then
-            removeESP(obj, drawingsClone)
+        -- Nếu model hoặc ancestor của nó nằm trong bảng, xoá ESP
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and drawingsClone[model] then
+            removeESP(model, drawingsClone)
         end
     end)
 end
@@ -2396,8 +2446,8 @@ function stopESPClone()
     if addedConnClone then addedConnClone:Disconnect() end
     if removedConnClone then removedConnClone:Disconnect() end
     for _, data in pairs(drawingsClone) do
-        if data.text then pcall(function() data.text:Remove() end) end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        pcall(function() if data.text then data.text:Remove() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
     end
     table.clear(drawingsClone)
     espConnectionClone, addedConnClone, removedConnClone = nil, nil, nil
@@ -2439,7 +2489,35 @@ local conRedLoop, conRedAdded, conRedRemoved
 
 -- Utility tạo ESP
 local function createESP(model, drawings, color)
-    if not model or drawings[model] then return end
+    if not model then return end
+    if drawings[model] then
+        -- Nếu highlight/text bị mất thì tạo lại
+        local data = drawings[model]
+        if not (data.highlight and data.highlight.Parent) then
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+            local hl = Instance.new("Highlight")
+            hl.Adornee = model
+            hl.FillColor = color
+            hl.OutlineColor = color
+            hl.FillTransparency = 0.7
+            hl.OutlineTransparency = 0
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Enabled = true
+            hl.Parent = model
+            data.highlight = hl
+        end
+        if not data.text then
+            local text = Drawing.new("Text")
+            text.Size = 14
+            text.Center = true
+            text.Outline = true
+            text.Visible = false
+            text.Color = color
+            data.text = text
+        end
+        return
+    end
+
     local hrp = model:FindFirstChild("HumanoidRootPart")
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     if not hrp or not humanoid then return end
@@ -2460,7 +2538,7 @@ local function createESP(model, drawings, color)
     highlight.FillTransparency = 0.7
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Enabled = false
+    highlight.Enabled = true
     highlight.Parent = model
 
     drawings[model] = {text = text, humanoid = humanoid, highlight = highlight}
@@ -2469,10 +2547,43 @@ end
 local function removeESP(model, drawings)
     local data = drawings[model]
     if data then
-        if data.text then pcall(function() data.text:Remove() end) end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        pcall(function() if data.text then data.text:Remove() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
     end
     drawings[model] = nil
+end
+
+-- Loop ESP update
+local function updateESP(drawings, color)
+    for model, data in pairs(drawings) do
+        local humanoid = data.humanoid
+        if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
+            local hrp = model.HumanoidRootPart
+
+            -- Tự tạo lại nếu mất highlight
+            if not (data.highlight and data.highlight.Parent) then
+                createESP(model, drawings, color)
+                data = drawings[model]
+            end
+
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
+            local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+
+            if data.text then
+                data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                data.text.Position = Vector2.new(pos.X, pos.Y)
+                data.text.Visible = onScreen
+            end
+
+            if data.highlight then
+                data.highlight.Adornee = model
+                data.highlight.Enabled = true
+            end
+        else
+            if data.text then data.text.Visible = false end
+            if data.highlight then data.highlight.Enabled = false end
+        end
+    end
 end
 
 -- === White ESP (Survivors) ===
@@ -2485,24 +2596,7 @@ local function startESPWhite()
     end
 
     conWhiteLoop = RunService.Heartbeat:Connect(function()
-        task.spawn(function()
-            for model, data in pairs(drawingsWhite) do
-                local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-                if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
-                    local hrp = model.HumanoidRootPart
-                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
-                    local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                    text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Visible = onScreen
-                    highlight.Enabled = true
-                else
-                    text.Visible = false
-                    if highlight then highlight.Enabled = false end
-                end
-            end
-        end)
-        task.wait(0.5)
+        updateESP(drawingsWhite, Color3.fromRGB(255, 255, 255))
     end)
 
     conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
@@ -2536,24 +2630,7 @@ local function startESPRed()
     end
 
     conRedLoop = RunService.Heartbeat:Connect(function()
-        task.spawn(function()
-            for model, data in pairs(drawingsRed) do
-                local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-                if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
-                    local hrp = model.HumanoidRootPart
-                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
-                    local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                    text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Visible = onScreen
-                    highlight.Enabled = true
-                else
-                    text.Visible = false
-                    if highlight then highlight.Enabled = false end
-                end
-            end
-        end)
-        task.wait(0.5)
+        updateESP(drawingsRed, Color3.fromRGB(255, 0, 0))
     end)
 
     conRedAdded = workspace.DescendantAdded:Connect(function(obj)
@@ -2730,6 +2807,151 @@ Tabs.Visual:AddToggle("ESPGeneratorToggle", {
 }):OnChanged(function(state)
     if state then startESPGen() else stopESPGen() end
 end)
+
+
+
+
+
+
+do
+-- ========= Items ESP (auto re-add nếu mất) =========
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local itemsDraw = {}  -- [tool] = {text, highlight, part}
+local conItemsLoop, conItemsAdded, conItemsRemoved
+
+local function getToolPart(tool)
+    return tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
+end
+
+local function createItemESP(tool)
+    if not tool then return end
+    local part = getToolPart(tool)
+    if not part then return end
+
+    -- Nếu đã có highlight thì chỉ update lại thôi
+    if itemsDraw[tool] then
+        local data = itemsDraw[tool]
+        if data.highlight and data.highlight.Parent then
+            data.part = part
+            return
+        end
+    end
+
+    -- Text
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Visible = false
+    text.Color = Color3.fromRGB(255, 215, 0)
+
+    -- Highlight
+    local hl = Instance.new("Highlight")
+    hl.Name = "ItemESP_Highlight"
+    hl.Adornee = part
+    hl.FillColor = Color3.fromRGB(255, 215, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 215, 0)
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Enabled = true
+    hl.Parent = tool
+
+    itemsDraw[tool] = { text = text, highlight = hl, part = part }
+end
+
+local function removeItemESP(tool)
+    local data = itemsDraw[tool]
+    if not data then return end
+    pcall(function() if data.text then data.text:Remove() end end)
+    pcall(function() if data.highlight then data.highlight:Destroy() end end)
+    itemsDraw[tool] = nil
+end
+
+local function isInIngameFolder(inst)
+    local map = workspace:FindFirstChild("Map")
+    local ingame = map and map:FindFirstChild("Ingame")
+    return ingame and inst:IsDescendantOf(ingame)
+end
+
+local function scanInitialItems()
+    local map = workspace:FindFirstChild("Map")
+    local ingame = map and map:FindFirstChild("Ingame")
+    if not ingame then return end
+    for _, obj in ipairs(ingame:GetDescendants()) do
+        if obj:IsA("Tool") then
+            createItemESP(obj)
+        end
+    end
+end
+
+local function startESPItems()
+    if conItemsLoop then return end
+
+    scanInitialItems()
+
+    -- Auto update
+    conItemsLoop = RunService.Heartbeat:Connect(function()
+        for _, tool in ipairs(workspace:GetDescendants()) do
+            if tool:IsA("Tool") and isInIngameFolder(tool) then
+                -- Nếu chưa có hoặc bị mất highlight => tạo lại
+                if not itemsDraw[tool] or not (itemsDraw[tool].highlight and itemsDraw[tool].highlight.Parent) then
+                    createItemESP(tool)
+                end
+            end
+        end
+
+        -- Update text/position
+        for tool, data in pairs(itemsDraw) do
+            local part = data.part or getToolPart(tool)
+            if not (tool.Parent and part and part.Parent) or not isInIngameFolder(tool) then
+                if data.text then data.text.Visible = false end
+                if tool.Parent == nil then
+                    removeItemESP(tool)
+                end
+            else
+                data.part = part
+                if data.highlight and data.highlight.Adornee ~= part then
+                    data.highlight.Adornee = part
+                end
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 2, 0))
+                local dist = (part.Position - Camera.CFrame.Position).Magnitude
+                data.text.Text = string.format("%s [%.0fm]", tool.Name, dist)
+                data.text.Position = Vector2.new(pos.X, pos.Y)
+                data.text.Visible = onScreen
+                if data.highlight then data.highlight.Enabled = true end
+            end
+        end
+    end)
+
+    -- Watch for removal
+    conItemsRemoved = workspace.DescendantRemoving:Connect(function(obj)
+        if itemsDraw[obj] then
+            removeItemESP(obj)
+        end
+    end)
+end
+
+local function stopESPItems()
+    if conItemsLoop then conItemsLoop:Disconnect(); conItemsLoop = nil end
+    if conItemsRemoved then conItemsRemoved:Disconnect(); conItemsRemoved = nil end
+    for tool, _ in pairs(itemsDraw) do
+        removeItemESP(tool)
+    end
+    itemsDraw = {}
+end
+
+-- Fluent toggle
+Tabs.Visual:AddToggle("ESPItemsToggle", {
+    Title = "ESP Items",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then startESPItems() else stopESPItems() end
+end)
+end
+
 
 
 
