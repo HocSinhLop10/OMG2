@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.1",
+    SubTitle = "Version 4.0.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -424,7 +424,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
 
                             -- Lấy vị trí phía trước generator
                             local genCFrame = gen:GetPivot()
-                            local goalPos = (genCFrame * CFrame.new(0, 0, -4)).Position
+                            local goalPos = (genCFrame * CFrame.new(0, 0, -7)).Position
 
                             -- Anti-Killer check
                             if isKillerNearGenerator(goalPos, 50) then
@@ -877,6 +877,204 @@ end
 
     Tabs.Main:AddSection("↳ Chance")
 
+do
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- ================== STATE ==================
+local active = false
+local predictionMode = "Speed"
+local aimMode = "Normal"
+local aimDuration = 1.7
+local fasterDuration = 1 -- mới thêm
+local spinDuration = 0.5
+local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli"}
+
+-- Aimbot runtime
+local Humanoid, HRP = nil, nil
+local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+local aiming = false
+local prevFlintVisibleAim = false
+local lastTriggerTime = 0
+
+-- ================== NÚT FLUENT ==================
+Tabs.Main:AddDropdown("AimMode", {
+    Title = "Aim Mode",
+    Values = {"Normal", "Faster", "Reflex"}, -- thêm Faster
+    Default = "Normal",
+    Callback = function(val)
+        aimMode = val
+    end
+})
+
+Tabs.Main:AddDropdown("PredictionMode", {
+    Title = "Prediction Mode",
+    Values = {"Speed", "Ping", "front", "No Lag"},
+    Default = "Speed",
+    Callback = function(val)
+        predictionMode = val
+    end
+})
+
+Tabs.Main:AddToggle("AimbotToggle", {
+    Title = "Auto Aim Shoot",
+    Default = false,
+    Callback = function(state)
+        active = state
+    end
+})
+
+-- ================== HELPERS ==================
+local function setupCharacter(char)
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+end
+if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+local function getValidTarget()
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersFolder then
+        for _, name in ipairs(aimTargets) do
+            local target = killersFolder:FindFirstChild(name)
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                return target.HumanoidRootPart
+            end
+        end
+    end
+    return nil
+end
+
+local function getPingSeconds()
+    local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+    if pingStat then return pingStat:GetValue() / 1000 end
+    return 0.1
+end
+
+local function isFlintlockVisible()
+    if not LocalPlayer.Character then return false end
+    local flint = LocalPlayer.Character:FindFirstChild("Flintlock", true)
+    if not flint then return false end
+    if not (flint:IsA("BasePart") or flint:IsA("MeshPart") or flint:IsA("UnionOperation")) then
+        flint = flint:FindFirstChildWhichIsA("BasePart", true)
+        if not flint then return false end
+    end
+    return flint.Transparency < 1
+end
+
+-- Prediction
+local movementThreshold = 0.5
+local function getPredictedAimPosPing(targetHRP)
+    local ping = getPingSeconds()
+    local velocity = targetHRP.Velocity
+    if velocity.Magnitude <= movementThreshold then return targetHRP.Position end
+    return targetHRP.Position + (velocity * ping)
+end
+
+local function getPredictedAimPosInfrontHRPPing(targetHRP)
+    local ping = getPingSeconds()
+    local studs = ping * 60
+    if targetHRP.Velocity.Magnitude <= movementThreshold then return targetHRP.Position end
+    return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
+end
+
+-- ================== AIMBOT LOOP ==================
+RunService.RenderStepped:Connect(function()
+    if not active or not Humanoid or not HRP then return end
+    local isVisible = isFlintlockVisible()
+    if isVisible and not prevFlintVisibleAim and not aiming then
+        lastTriggerTime = tick()
+        aiming = true
+    end
+    prevFlintVisibleAim = isVisible
+
+    if aiming then
+        local elapsed = tick() - lastTriggerTime
+
+        if aimMode == "Reflex" then
+            -- Reflex giữ nguyên
+            if elapsed <= spinDuration then
+                local spinProgress = elapsed / spinDuration
+                local spinAngle = math.rad(360 * spinProgress)
+                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0)
+            elseif elapsed <= spinDuration + 0.7 then
+                if not originalWS then
+                    originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                end
+                Humanoid.AutoRotate = false
+                HRP.AssemblyAngularVelocity = Vector3.zero
+                local targetHRP = getValidTarget()
+                if targetHRP then
+                    local aimPos
+                    if predictionMode == "Ping" then
+                        aimPos = getPredictedAimPosPing(targetHRP)
+                    elseif predictionMode == "front" then
+                        aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
+                    elseif predictionMode == "No Lag" then
+                        aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
+                    else
+                        aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                    end
+                    if aimPos then
+                        local direction = (aimPos - HRP.Position).Unit
+                        local yRot = math.atan2(-direction.X, -direction.Z)
+                        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                    end
+                end
+            else
+                aiming = false
+                if originalWS then
+                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
+                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                end
+            end
+
+        elseif aimMode == "Normal" or aimMode == "Faster" then
+            -- Normal và Faster chung logic, chỉ khác thời gian
+            local duration = (aimMode == "Faster") and fasterDuration or aimDuration
+            if elapsed <= duration then
+                if not originalWS then
+                    originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                end
+                Humanoid.AutoRotate = false
+                HRP.AssemblyAngularVelocity = Vector3.zero
+                local targetHRP = getValidTarget()
+                if targetHRP then
+                    local aimPos
+                    if predictionMode == "Ping" then
+                        aimPos = getPredictedAimPosPing(targetHRP)
+                    elseif predictionMode == "front" then
+                        aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
+                    elseif predictionMode == "No Lag" then
+                        aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
+                    else
+                        aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                    end
+                    if aimPos then
+                        local direction = (aimPos - HRP.Position).Unit
+                        local yRot = math.atan2(-direction.X, -direction.Z)
+                        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                    end
+                end
+            else
+                aiming = false
+                if originalWS then
+                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
+                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                end
+            end
+        end
+    end
+end)
+end
+
+
+
+
 
 -- AutoUseCoinFlip (Fix)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -906,153 +1104,6 @@ Tabs.Main:AddToggle("AutoUseCoinFlip", {
     end
 end)
 
-
--- === Auto Aim Shoot (Fix) ===
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
--- Config
-local aimDuration = 1.7
-local aimTargets = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
-local trackedAnimations = {
-    ["103601716322988"] = true,
-    ["133491532453922"] = true,
-    ["86371356500204"] = true,
-    ["76649505662612"] = true,
-    ["81698196845041"] = true
-}
-
--- State
-local active = false
-local Humanoid, HRP = nil, nil
-local lastTriggerTime = 0
-local aiming = false
-local originalWS, originalJP, originalAutoRotate
-local predictionValue = 4
-local aimConn -- connection loop
-
--- Cho phép GUI thay đổi giá trị prediction
-function setPredictionValue(val)
-    predictionValue = val
-end
-
--- Setup Character
-local function setupCharacter(char)
-    Humanoid = char:WaitForChild("Humanoid")
-    HRP = char:WaitForChild("HumanoidRootPart")
-end
-if LocalPlayer.Character then
-    setupCharacter(LocalPlayer.Character)
-end
-LocalPlayer.CharacterAdded:Connect(setupCharacter)
-
--- Target Check
-local function getValidTarget()
-    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if killersFolder then
-        for _, name in ipairs(aimTargets) do
-            local target = killersFolder:FindFirstChild(name)
-            if target and target:FindFirstChild("HumanoidRootPart") then
-                return target.HumanoidRootPart
-            end
-        end
-    end
-    return nil
-end
-
--- Playing Animations
-local function getPlayingAnimationIds()
-    local ids = {}
-    if Humanoid then
-        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation and track.Animation.AnimationId then
-                local id = track.Animation.AnimationId:match("%d+")
-                if id then ids[id] = true end
-            end
-        end
-    end
-    return ids
-end
-
--- 🚀 Start Auto Aim
-local function startAutoAim()
-    if active then return end
-    active = true
-
-    aimConn = RunService.RenderStepped:Connect(function()
-        if not active or not Humanoid or not HRP then return end
-
-        local playing = getPlayingAnimationIds()
-        local triggered = false
-        for id in pairs(trackedAnimations) do
-            if playing[id] then
-                triggered = true
-                break
-            end
-        end
-
-        if triggered then
-            lastTriggerTime = os.clock()
-            aiming = true
-        end
-
-        if aiming and os.clock() - lastTriggerTime <= aimDuration then
-            if not originalWS then
-                originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
-            end
-
-            Humanoid.AutoRotate = false
-            HRP.AssemblyAngularVelocity = Vector3.zero
-
-            local targetHRP = getValidTarget()
-            if targetHRP then
-                local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
-                local direction = (predictedPos - HRP.Position).Unit
-                local yRot = math.atan2(-direction.X, -direction.Z)
-                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-            end
-        elseif aiming then
-            aiming = false
-            if originalWS and originalJP and originalAutoRotate ~= nil then
-                Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
-                originalWS, originalJP, originalAutoRotate = nil, nil, nil
-            end
-        end
-    end)
-end
-
--- 🛑 Stop Auto Aim
-local function stopAutoAim()
-    active = false
-    aiming = false
-    if aimConn then
-        aimConn:Disconnect()
-        aimConn = nil
-    end
-end
-
--- === GUI Bindings ===
-Tabs.Main:AddSlider("PredictionSlider", {
-    Title = "Prediction",
-    Default = 4,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-}):OnChanged(function(val)
-    setPredictionValue(val)
-end)
-
-Tabs.Main:AddToggle("AutoAimToggle", {
-    Title = "Auto Aim Shoot",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startAutoAim()
-    else
-        stopAutoAim()
-    end
-end)
 
 
     Tabs.Main:AddSection("↳ Two Time")
@@ -1943,6 +1994,7 @@ end
 
     Tabs.Player:AddSection("↳ Hitbox")
 
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -1967,43 +2019,77 @@ local targetModels = {
 }
 
 local HitboxEnabled = false
-local HitboxScale = 2 -- mặc định
-local originalSizes = {}
+local HitboxScale = 8 -- mặc định
+local originalParts = {} -- lưu thuộc tính gốc theo part
 
--- Hàm áp dụng hitbox
+local function saveOriginal(part)
+    originalParts[part] = {
+        Size = part.Size,
+        Transparency = part.Transparency,
+        Color = part.Color,
+        Material = part.Material,
+        CanCollide = part.CanCollide,
+    }
+end
+
+-- Hàm áp dụng hitbox (square trên XZ và tăng chiều cao Y theo HitboxScale)
 local function applyHitboxToCharacter(char, owner)
     if not HitboxEnabled then return end
+    if not char or not char.Parent then return end
     if not targetModels[char.Name] then return end
     if owner == LocalPlayer then return end -- Không áp dụng cho bản thân
 
     local part = char:FindFirstChild("HumanoidRootPart")
     if part and part:IsA("BasePart") then
-        if not originalSizes[part] then
-            originalSizes[part] = part.Size
+        if not originalParts[part] then
+            saveOriginal(part)
         end
 
-        part.Size = originalSizes[part] * HitboxScale
-        part.Transparency = 0.8 -- Trong suốt
-        part.Color = Color3.fromRGB(255, 0, 0) -- Đỏ
+        local orig = originalParts[part]
+        -- Dùng max(orig.X, orig.Z) để được hình vuông trên mặt đất
+        local base = math.max(orig.Size.X, orig.Size.Z)
+        -- Tạo kích thước mới: X = Z = base * scale, Y = origY * scale (tăng cao)
+        local newSize = Vector3.new(base * HitboxScale, orig.Size.Y * HitboxScale, base * HitboxScale)
+
+        -- Dịch lên nửa phần chênh lệch chiều cao để giữ chân ở vị trí tương đối
+        local deltaY = (newSize.Y - orig.Size.Y) / 2
+        -- Thay đổi size trước rồi di chuyển lên xuống
+        part.Size = newSize
+        part.CFrame = part.CFrame + part.CFrame.UpVector * deltaY
+
+        -- Thay đổi hiển thị
+        part.Transparency = 0.8
+        part.Color = Color3.fromRGB(255, 0, 0)
         part.Material = Enum.Material.Neon
         part.CanCollide = false
     end
 end
 
--- Hàm reset hitbox
+-- Hàm reset hitbox (phục hồi đúng thuộc tính gốc và vị trí)
 local function resetHitbox(char)
+    if not char or not char.Parent then return end
     local part = char:FindFirstChild("HumanoidRootPart")
-    if part and part:IsA("BasePart") and originalSizes[part] then
-        part.Size = originalSizes[part]
-        part.Transparency = 1
-        part.Material = Enum.Material.Plastic
+    if part and part:IsA("BasePart") and originalParts[part] then
+        local orig = originalParts[part]
+
+        -- Dịch xuống bằng nửa phần chênh lệch hiện tại -> gán size gốc
+        local deltaY = (part.Size.Y - orig.Size.Y) / 2
+        part.CFrame = part.CFrame - part.CFrame.UpVector * deltaY
+
+        part.Size = orig.Size
+        part.Transparency = orig.Transparency
+        part.Color = orig.Color
+        part.Material = orig.Material
+        part.CanCollide = orig.CanCollide
+
+        originalParts[part] = nil
     end
 end
 
 -- Slider chỉnh scale
 Tabs.Player:AddSlider("HitboxScale", {
     Title = "Hitbox Scale",
-    Default = 2,
+    Default = 8,
     Min = 1,
     Max = 100,
     Rounding = 1
@@ -2011,7 +2097,7 @@ Tabs.Player:AddSlider("HitboxScale", {
     HitboxScale = value
     if HitboxEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do
-            if plr.Character then
+            if plr ~= LocalPlayer and plr.Character then
                 applyHitboxToCharacter(plr.Character, plr)
             end
         end
@@ -2020,7 +2106,7 @@ end)
 
 -- Toggle bật/tắt (nằm dưới slider)
 Tabs.Player:AddToggle("HitboxToggle", {
-    Title = "Hitbox Target Players",
+    Title = "Hitbox Survivors",
     Default = false
 }):OnChanged(function(state)
     HitboxEnabled = state
@@ -2036,22 +2122,40 @@ Tabs.Player:AddToggle("HitboxToggle", {
     end
 end)
 
--- Theo dõi player mới vào
+-- Theo dõi player mới vào và respawn / rời
 Players.PlayerAdded:Connect(function(plr)
     plr.CharacterAdded:Connect(function(char)
         task.wait(0.1)
-        applyHitboxToCharacter(char, plr)
+        if HitboxEnabled then
+            applyHitboxToCharacter(char, plr)
+        end
     end)
+    plr.CharacterRemoving:Connect(function(char)
+        resetHitbox(char)
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    if plr.Character then
+        resetHitbox(plr.Character)
+    end
 end)
 
 -- Áp dụng cho player hiện tại
 for _, plr in ipairs(Players:GetPlayers()) do
     plr.CharacterAdded:Connect(function(char)
         task.wait(0.1)
-        applyHitboxToCharacter(char, plr)
+        if HitboxEnabled then
+            applyHitboxToCharacter(char, plr)
+        end
+    end)
+    plr.CharacterRemoving:Connect(function(char)
+        resetHitbox(char)
     end)
     if plr.Character then
-        applyHitboxToCharacter(plr.Character, plr)
+        if HitboxEnabled then
+            applyHitboxToCharacter(plr.Character, plr)
+        end
     end
 end
 
