@@ -1,10 +1,65 @@
--- Create the Hutao Hub loading screen
+-- ⚡ Hutao Hub Key System + Loader (Free + Premium + Fade Out) ⚡
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+
+-- Danh sách link + key (FREE)
+local Links = {
+    {url="https://direct-link.net/1390605/8GksDFRa7723", key="HutaoHub_1789-5378-0923-6139"},
+    {url="https://link-hub.net/1390605/SX0X5S1x3ytq", key="HutaoHub_9027-4920-8372-0197"},
+    {url="https://direct-link.net/1390605/xJ2jERTX6Guv", key="HutaoHub_2094-4082-1903-2920"},
+    {url="https://direct-link.net/1390605/H41lMQ8nmRJe", key="HutaoHub_0184-7289-1029-7382"},
+    {url="https://link-hub.net/1390605/ZFhE7ymkZwPx", key="HutaoHub_2110-3882-1910-3829"},
+    {url="https://link-hub.net/1390605/mDzxSNmA5FNY", key="HutaoHub_3893-2048-2783-0382"},
+    {url="https://link-center.net/1390605/fpVsG9rHmkZw", key="HutaoHub_8492-0183-7492-4572"},
+    {url="https://direct-link.net/1390605/9HplSFXSJx5n", key="HutaoHub_8392-0183-2729-7382"},
+    {url="https://direct-link.net/1390605/5bbsKXJH7y3Y", key="HutaoHub_3739-2018-4782-7192"},
+    {url="https://link-center.net/1390605/9d1CSUQNebGL", key="HutaoHub_7483-2627-0916-1683"},
+    {url="https://link-hub.net/1390605/DGK2HQOeelDA", key="HutaoHub_2839-7382-0174-8298"},
+    {url="https://link-hub.net/1390605/NBCFzAXYNJi6", key="HutaoHub_0297-0193-1928-4921"},
+    {url="https://link-hub.net/1390605/RucSXobEQ0Z6", key="HutaoHub_5028-3829-8104-7110"},
+    {url="https://direct-link.net/1390605/jTI5uFxkCCvo", key="HutaoHub_6489-2727-4729-9183"},
+    {url="https://direct-link.net/1390605/dn1W2dSRFDpd", key="HutaoHub_4728-9592-9201-3838"},
+}
+
+-- Premium Keys (mỗi key chỉ dành cho đúng username Roblox)
+local PremiumKeys = {
+    ["TeddyFlameYt2"] = "HutaoHub_Premium-[TeddyFlameYt2]",
+    ["keo998122"] = "HutaoHub_Premium-[keo998122]",
+    ["XuanVuO_oCoolkidd"] = "HutaoHub_Premium-[XuanVuO_oCoolkidd]",
+    ["chadoi_bay3acc"] = "HutaoHub_Premium-[chadoi_bay3acc]",
+    ["rbown_VIP"] = "HutaoHub_Premium-[rbown_VIP]",
+    ["soss376"] = "HutaoHub_Premium-[soss376]",
+    ["ongtrumkhoinghiep_2"] = "HutaoHub_Premium-[ongtrumkhoinghiep_2]",
+    ["Tummy_not"] = "HutaoHub_Premium-[Tummy_not]",
+    ["JACKGAMER958"] = "HutaoHub_Premium-[JACKGAMER958]",
+    ["Nguyenminhquy2016"] = "HutaoHub_Premium-[Nguyenminhquy2016]",
+}
+
+local PremiumExpire = 9999999 * 24 * 60 * 60
+local isPremiumUser = false
+
+-- File lưu key
+local fileName = "hutao_key.json"
+
+local function loadSaved()
+    if isfile and isfile(fileName) then
+        return HttpService:JSONDecode(readfile(fileName))
+    end
+    return {}
+end
+
+local function saveData(data)
+    if writefile then
+        writefile(fileName, HttpService:JSONEncode(data))
+    end
+end
+
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HutaoLoader"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Parent = CoreGui
 
--- Main container with cyberpunk aesthetic
 local Frame = Instance.new("Frame")
 Frame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
 Frame.BorderColor3 = Color3.fromRGB(0, 150, 255)
@@ -12,14 +67,10 @@ Frame.BorderSizePixel = 2
 Frame.Position = UDim2.new(0.5, -175, 0.5, -125)
 Frame.Size = UDim2.new(0, 350, 0, 250)
 Frame.Parent = ScreenGui
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 8)
-Corner.Parent = Frame
-
--- Glow effect
+-- Glow
 local Glow = Instance.new("ImageLabel")
-Glow.Name = "Glow"
 Glow.BackgroundTransparency = 1
 Glow.Image = "rbxassetid://5028857084"
 Glow.ImageColor3 = Color3.fromRGB(0, 100, 255)
@@ -29,76 +80,76 @@ Glow.Size = UDim2.new(1, 20, 1, 20)
 Glow.Position = UDim2.new(0, -10, 0, -10)
 Glow.Parent = Frame
 
--- Hutao logo
+-- Title
 local Logo = Instance.new("TextLabel")
 Logo.Font = Enum.Font.GothamBlack
 Logo.Text = "HUTAO HUB"
-Logo.TextColor3 = Color3.fromRGB(0, 200, 255)
+Logo.TextColor3 = Color3.fromRGB(0,200,255)
 Logo.TextSize = 28
-Logo.TextStrokeTransparency = 0.7
 Logo.BackgroundTransparency = 1
-Logo.Position = UDim2.new(0, 0, 0.1, 0)
-Logo.Size = UDim2.new(1, 0, 0, 40)
+Logo.Size = UDim2.new(1,0,0,40)
+Logo.Position = UDim2.new(0,0,0.05,0)
 Logo.Parent = Frame
 
--- Version label 
+-- Version
 local Version = Instance.new("TextLabel")
 Version.Font = Enum.Font.GothamMedium
 Version.Text = "V4.0.0"
-Version.TextColor3 = Color3.fromRGB(100, 150, 255)
+Version.TextColor3 = Color3.fromRGB(100,150,255)
 Version.TextSize = 14
 Version.BackgroundTransparency = 1
-Version.Position = UDim2.new(0.7, 0, 0.18, 0)
-Version.Size = UDim2.new(0.3, 0, 0, 20)
+Version.Position = UDim2.new(0.7,0,0.18,0)
+Version.Size = UDim2.new(0.3,0,0,20)
 Version.TextXAlignment = Enum.TextXAlignment.Left
 Version.Parent = Frame
 
--- Progress bar container
-local ProgressBar = Instance.new("Frame")
-ProgressBar.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
-ProgressBar.BorderSizePixel = 0
-ProgressBar.Position = UDim2.new(0.1, 0, 0.6, 0)
-ProgressBar.Size = UDim2.new(0.8, 0, 0, 12)
-ProgressBar.Parent = Frame
+-- Ô nhập key
+local KeyBox = Instance.new("TextBox")
+KeyBox.PlaceholderText = "Nhập key tại đây..."
+KeyBox.Text = ""
+KeyBox.Font = Enum.Font.Gotham
+KeyBox.TextSize = 16
+KeyBox.BackgroundColor3 = Color3.fromRGB(20,20,30)
+KeyBox.TextColor3 = Color3.fromRGB(255,255,255)
+KeyBox.Size = UDim2.new(0.8,0,0,30)
+KeyBox.Position = UDim2.new(0.1,0,0.35,0)
+KeyBox.Parent = Frame
+Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0,6)
 
-local ProgressCorner = Instance.new("UICorner")
-ProgressCorner.CornerRadius = UDim.new(1, 0)
-ProgressCorner.Parent = ProgressBar
+-- Nút Get Key
+local GetKeyBtn = Instance.new("TextButton")
+GetKeyBtn.Text = "Get Key"
+GetKeyBtn.Font = Enum.Font.GothamBold
+GetKeyBtn.TextSize = 16
+GetKeyBtn.BackgroundColor3 = Color3.fromRGB(0,200,255)
+GetKeyBtn.Size = UDim2.new(0.35,0,0,30)
+GetKeyBtn.Position = UDim2.new(0.1,0,0.55,0)
+GetKeyBtn.Parent = Frame
+Instance.new("UICorner", GetKeyBtn).CornerRadius = UDim.new(0,6)
 
--- Progress fill with neon effect
-local ProgressFill = Instance.new("Frame")
-ProgressFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-ProgressFill.BorderSizePixel = 0
-ProgressFill.Size = UDim2.new(0, 0, 1, 0)
-ProgressFill.Parent = ProgressBar
+-- Nút Check Key
+local CheckBtn = Instance.new("TextButton")
+CheckBtn.Text = "Check Key"
+CheckBtn.Font = Enum.Font.GothamBold
+CheckBtn.TextSize = 16
+CheckBtn.BackgroundColor3 = Color3.fromRGB(0,200,100)
+CheckBtn.Size = UDim2.new(0.35,0,0,30)
+CheckBtn.Position = UDim2.new(0.55,0,0.55,0)
+CheckBtn.Parent = Frame
+Instance.new("UICorner", CheckBtn).CornerRadius = UDim.new(0,6)
 
-local FillCorner = Instance.new("UICorner")
-FillCorner.CornerRadius = UDim.new(1, 0)
-FillCorner.Parent = ProgressFill
-
--- Progress percentage
-local Percentage = Instance.new("TextLabel")
-Percentage.Font = Enum.Font.GothamBold
-Percentage.Text = "0%"
-Percentage.TextColor3 = Color3.fromRGB(200, 240, 255)
-Percentage.TextSize = 18
-Percentage.BackgroundTransparency = 1
-Percentage.Position = UDim2.new(0, 0, 0.7, 0)
-Percentage.Size = UDim2.new(1, 0, 0, 30)
-Percentage.Parent = Frame
-
--- Status message
+-- Status
 local Status = Instance.new("TextLabel")
+Status.Text = "Hãy lấy key để tiếp tục."
 Status.Font = Enum.Font.Gotham
-Status.Text = "Initializing Hutao core..."
-Status.TextColor3 = Color3.fromRGB(150, 200, 255)
-Status.TextSize = 12
+Status.TextSize = 14
+Status.TextColor3 = Color3.fromRGB(200,200,200)
 Status.BackgroundTransparency = 1
-Status.Position = UDim2.new(0, 0, 0.8, 0)
-Status.Size = UDim2.new(1, 0, 0, 20)
+Status.Size = UDim2.new(1,0,0,20)
+Status.Position = UDim2.new(0,0,0.8,0)
 Status.Parent = Frame
 
--- Credit label (hidden at first)
+-- Credit ẩn
 local Credit = Instance.new("TextLabel")
 Credit.Font = Enum.Font.GothamMedium
 Credit.Text = ""
@@ -110,110 +161,82 @@ Credit.Size = UDim2.new(1, 0, 0, 20)
 Credit.Visible = false
 Credit.Parent = Frame
 
--- Loading animation function
+-- Loader Animation
 local function animateLoad()
+    GetKeyBtn.Visible = false
+    CheckBtn.Visible = false
+    KeyBox.Visible = false
+
+    local mainColor = isPremiumUser and Color3.fromRGB(255,215,0) or Color3.fromRGB(0,200,255)
+    local glowColor = isPremiumUser and Color3.fromRGB(255,200,50) or Color3.fromRGB(0,150,255)
+
+    -- chỉnh màu khi Premium/Free
+    Logo.TextColor3 = mainColor
+    Version.TextColor3 = mainColor
+    Glow.ImageColor3 = glowColor
+    Frame.BorderColor3 = mainColor
+    Frame.BorderSizePixel = isPremiumUser and 4 or 3
+    Glow.ImageTransparency = isPremiumUser and 0.2 or 0.35
+
+    local ProgressBar = Instance.new("Frame")
+    ProgressBar.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
+    ProgressBar.BorderSizePixel = 0
+    ProgressBar.Position = UDim2.new(0.1, 0, 0.6, 0)
+    ProgressBar.Size = UDim2.new(0.8, 0, 0, 12)
+    ProgressBar.Parent = Frame
+    Instance.new("UICorner", ProgressBar).CornerRadius = UDim.new(1, 0)
+
+    local ProgressFill = Instance.new("Frame")
+    ProgressFill.BackgroundColor3 = mainColor
+    ProgressFill.BorderSizePixel = 0
+    ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+    ProgressFill.Parent = ProgressBar
+    Instance.new("UICorner", ProgressFill).CornerRadius = UDim.new(1, 0)
+
+    local Percentage = Instance.new("TextLabel")
+    Percentage.Font = Enum.Font.GothamBold
+    Percentage.Text = "0%"
+    Percentage.TextColor3 = mainColor
+    Percentage.TextSize = 18
+    Percentage.BackgroundTransparency = 1
+    Percentage.Position = UDim2.new(0, 0, 0.7, 0)
+    Percentage.Size = UDim2.new(1, 0, 0, 30)
+    Percentage.Parent = Frame
+
     local cyberMessages = {
-        "Chúc Mừng Ngày 2/9 !!",
-        "Một Ngày Vui Vẻ Nhé Các Bạn !!"
+        "Dark power is here",
+        "Did you know Hutao Hub is the best script?",
+        "SLK gaming is the founder of Hutao Hub!",
+        "Thanks for using our script!",
     }
 
-    local glitchEffect = 0
     local showCredit = false
-
     for i = 1, 100 do
         ProgressFill.Size = UDim2.new(i/100, 0, 1, 0)
         Percentage.Text = i.."%"
 
-        -- Show credit at 75%
         if i >= 75 and not showCredit then
             showCredit = true
             Credit.Visible = true
-            Credit.Text = "Script by SLK gaming | Hutao Hub [Free]"
-            for t = 0, 1, 0.1 do
-                Credit.TextTransparency = 1 - t
-                wait(0.03)
-            end
+            Credit.Text = isPremiumUser and "Script by SLK gaming | Hutao Hub [Premium]" or "Script by SLK gaming | Hutao Hub [Free]"
         end
 
-        -- Glitch effect on progress
-        if i % 7 == 0 then
-            glitchEffect = math.random(-2, 2)
-            Percentage.Position = UDim2.new(0, 0, 0.7, glitchEffect)
-        else
-            Percentage.Position = UDim2.new(0, 0, 0.7, 0)
-        end
-
-        -- Change status message every 10%
         if i % 10 == 0 then
             Status.Text = cyberMessages[math.random(1, #cyberMessages)]
-            local origText = Status.Text
-            if math.random() > 0.7 then
-                Status.Text = string.upper(origText)
-                wait(0.05)
-                Status.Text = origText
-            end
         end
 
-        -- Pulsing glow effect
-        Glow.ImageTransparency = 0.7 + (math.sin(tick() * 5) * 0.1)
-
-        -- Color shift for cyberpunk feel
-        if i < 33 then
-            ProgressFill.BackgroundColor3 = Color3.fromRGB(0, 150 + (i * 2), 255)
-        elseif i < 66 then
-            ProgressFill.BackgroundColor3 = Color3.fromRGB(0, 200, 255 - (i - 33) * 2)
+        if isPremiumUser then
+            Glow.ImageTransparency = 0.2 + (math.sin(tick() * 3) * 0.05)
         else
-            ProgressFill.BackgroundColor3 = Color3.fromRGB((i - 66) * 1.5, 200, 200 - (i - 66))
+            Glow.ImageTransparency = 0.35 + (math.sin(tick() * 4) * 0.08)
         end
 
-        wait(math.random(20, 40)/1000)
+        wait(0.03)
     end
 
-    -- Final completion
-    Status.Text = "HUTAO HUB READY"
-    Logo.TextColor3 = Color3.fromRGB(0, 255, 150)
-    Glow.ImageColor3 = Color3.fromRGB(0, 255, 100)
+    Status.Text = isPremiumUser and "HUTAO HUB VIP READY" or "HUTAO HUB READY"
 
-    -- Flash effect
-    for i = 1, 3 do
-        Glow.ImageTransparency = 0.3
-        wait(0.1)
-        Glow.ImageTransparency = 0.7
-        wait(0.1)
-    end
-
-    -- Cyberpunk-style digital rain
-    local particles = Instance.new("Frame")
-    particles.BackgroundTransparency = 1
-    particles.Size = UDim2.new(1, 0, 1, 0)
-    particles.Parent = Frame
-
-    for i = 1, 30 do
-        local digit = Instance.new("TextLabel")
-        digit.Text = tostring(math.random(0, 1))
-        digit.Font = Enum.Font.Code
-        digit.TextColor3 = Color3.fromRGB(0, 255, 100)
-        digit.TextSize = math.random(10, 16)
-        digit.BackgroundTransparency = 1
-        digit.Position = UDim2.new(math.random(), 0, 0, -math.random(20, 40))
-        digit.Size = UDim2.new(0, 20, 0, 20)
-        digit.Parent = particles
-
-        spawn(function()
-            local speed = math.random(50, 100)/10
-            while digit do
-                digit.Position = digit.Position + UDim2.new(0, 0, 0, speed * 0.03)
-                digit.TextTransparency = digit.TextTransparency + 0.03
-                if digit.Position.Y.Offset > 250 or digit.TextTransparency > 1 then
-                    digit:Destroy()
-                    break
-                end
-                wait()
-            end
-        end)
-    end
-
-    -- Shrink and fade animation
+    -- Fade out
     for i = 1, 20 do
         Frame.Size = Frame.Size - UDim2.new(0, 10, 0, 10)
         Frame.Position = Frame.Position + UDim2.new(0, 5, 0, 5)
@@ -221,7 +244,7 @@ local function animateLoad()
         Frame.BorderSizePixel = 0
 
         Logo.TextTransparency = i/20
-        Version.TextTransparency = i/20 -- Mờ dần dòng v3.1.4
+        Version.TextTransparency = i/20
         Percentage.TextTransparency = i/20
         Status.TextTransparency = i/20
         ProgressBar.BackgroundTransparency = i/20
@@ -232,7 +255,6 @@ local function animateLoad()
         wait(0.03)
     end
 
-    -- Execute the main script after animation completes
     spawn(function()
         wait(0.5)
         loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/FSK.txt", true))()
@@ -240,5 +262,95 @@ local function animateLoad()
     end)
 end
 
--- Start the animation
-animateLoad()
+-- Auto-check key khi mở script
+local Saved = loadSaved()
+local now = os.time()
+if Saved.key and Saved.expire and now < Saved.expire then
+    if Saved.premium then isPremiumUser = true end
+    spawn(function()
+        wait(0.5)
+        animateLoad()
+    end)
+    return
+end
+
+-- Logic Get Key (Anti-trùng Free Key + Reset vòng mới)
+GetKeyBtn.MouseButton1Click:Connect(function()
+    local saved = loadSaved()
+    local now = os.time()
+
+    -- Nếu key còn hạn thì dùng luôn
+    if saved.expire and now < saved.expire then
+        setclipboard(saved.url)
+        Status.Text = "Bạn đã có link, key còn hiệu lực!"
+        return
+    end
+
+    -- Danh sách key đã dùng (nếu chưa có thì rỗng)
+    local usedKeys = saved.usedKeys or {}
+    local available = {}
+
+    -- Lọc những key chưa dùng
+    for _, v in ipairs(Links) do
+        if not table.find(usedKeys, v.key) then
+            table.insert(available, v)
+        end
+    end
+
+    -- Nếu hết key thì reset vòng mới
+    if #available == 0 then
+        usedKeys = {}
+        available = Links
+        Status.Text = "Key Đang Update !!"
+    end
+
+    -- Random 1 key trong available
+    local pick = available[math.random(1, #available)]
+
+    -- Thêm key vào danh sách đã dùng
+    table.insert(usedKeys, pick.key)
+
+    -- Lưu lại
+    saveData({
+        url = pick.url,
+        key = pick.key,
+        expire = now + 24*60*60, -- Đoạn chỉnh thời gian free key
+        usedKeys = usedKeys,
+    })
+
+    -- Copy link và báo status
+    setclipboard(pick.url)
+    Status.Text = "Link mới đã copy! Vào link để lấy key."
+end)
+
+-- Logic Check Key
+CheckBtn.MouseButton1Click:Connect(function()
+    local saved = loadSaved()
+    local now = os.time()
+    local playerName = game.Players.LocalPlayer.Name
+
+    -- Check Premium
+    if PremiumKeys[playerName] and KeyBox.Text == PremiumKeys[playerName] then
+        Status.Text = "Xin chào VIP "..playerName.."!"
+        saveData({key=PremiumKeys[playerName], expire=now+PremiumExpire, premium=true})
+        isPremiumUser = true
+        animateLoad()
+        return
+    elseif PremiumKeys[playerName] and KeyBox.Text ~= PremiumKeys[playerName] then
+        Status.Text = "Key Premium Không Thuộc Về Bạn !!"
+        return
+    end
+
+    -- Check Free
+    if not saved.key then
+        Status.Text = "Bạn chưa lấy key!"
+        return
+    end
+
+    if KeyBox.Text == saved.key then
+        Status.Text = "Key đúng! Đang load..."
+        animateLoad()
+    else
+        Status.Text = "Sai key, thử lại!"
+    end
+end)
