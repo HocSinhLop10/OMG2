@@ -33,6 +33,7 @@ local PremiumKeys = {
     ["Tummy_not"] = "HutaoHub_Premium-[Tummy_not]",
     ["JACKGAMER958"] = "HutaoHub_Premium-[JACKGAMER958]",
     ["Nguyenminhquy2016"] = "HutaoHub_Premium-[Nguyenminhquy2016]",
+    ["onlmmp"] = "HutaoHub_Premium-[onlmmp]",
 }
 
 local PremiumExpire = 9999999 * 24 * 60 * 60
