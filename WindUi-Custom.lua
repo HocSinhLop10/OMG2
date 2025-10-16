@@ -2907,7 +2907,7 @@ SLKGAMING = {
     Outline = Color3.fromHex("#00fff7"),      -- viền sáng cyan
     Text = Color3.fromHex("#31ff00"),         -- chữ trắng pha xanh nhẹ
     Placeholder = Color3.fromHex("#A0FFD9"),  -- text phụ sáng
-    Background = Color3.fromHex("#31ff00"),   -- nền chính xanh đen
+    Background = Color3.fromHex("#00fff7"),   -- nền chính xanh đen
     Button = Color3.fromHex("#00fff7"),       -- màu nút / toggle sáng
     Icon = Color3.fromHex("#31ff00"),         -- màu icon tươi xanh lá ngọc
 
