@@ -2901,21 +2901,21 @@ Icon=Color3.fromHex"#a1a1aa"
 SLKGAMING = {
     Name = "SLKGAMING",
 
-    -- 🌈 Xanh lá – Xanh lơ sáng (năng lượng)
-    Accent = Color3.fromHex("#00fff7"),       -- xanh ngọc tươi
-    Dialog = Color3.fromHex("#31ff00"),       -- nền hộp thoại đậm, hơi ánh xanh
-    Outline = Color3.fromHex("#00fff7"),      -- viền sáng cyan
-    Text = Color3.fromHex("#31ff00"),         -- chữ trắng pha xanh nhẹ
-    Placeholder = Color3.fromHex("#A0FFD9"),  -- text phụ sáng
-    Background = Color3.fromHex("#00fff7"),   -- nền chính xanh đen
-    Button = Color3.fromHex("#00fff7"),       -- màu nút / toggle sáng
-    Icon = Color3.fromHex("#31ff00"),         -- màu icon tươi xanh lá ngọc
+    -- 🔷 Màu chính & phụ
+    Accent = Color3.fromHex("#00FFF7"),       -- Neon cyan sáng, làm tông chủ đạo
+    Dialog = Color3.fromHex("#0A1F21"),       -- Nền hộp thoại đậm, ánh xanh lạnh
+    Outline = Color3.fromHex("#00FFF7"),      -- Viền sáng cyan
+    Text = Color3.fromHex("#E8FFFF"),         -- Chữ trắng ánh xanh nhẹ
+    Placeholder = Color3.fromHex("#7AFFF2"),  -- Text phụ cyan mờ
+    Background = Color3.fromHex("#04191B"),   -- Nền tổng thể xanh đen pha lam
+    Button = Color3.fromHex("#00E6D3"),       -- Nút / tab sáng hơn nền
+    Icon = Color3.fromHex("#00FFC6"),         -- Icon xanh ngọc sáng nổi bật
 
-    -- ⚡ Hiệu ứng chuyển sắc (tuỳ chọn)
+    -- 🌈 Hiệu ứng gradient năng lượng (cyan ↔ ngọc)
     Gradient = {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 120)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 210, 255))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 247)),  -- #00FFF7
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 163))   -- #00FFA3 (ngọc)
         }),
         Transparency = NumberSequence.new(0),
         Rotation = 90
