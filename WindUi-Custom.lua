@@ -11465,26 +11465,4 @@ end
 return aA
 end
 
-return acrent=at.Transparent
-ac.Window=aA
-
-if at.Acrylic then
-an.init()
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-return aA
-end
-
 return ac
