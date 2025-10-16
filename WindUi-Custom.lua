@@ -2902,14 +2902,14 @@ SLKGAMING = {
     Name = "SLKGAMING",
 
     -- 🌈 Xanh lá – Xanh lơ sáng (năng lượng)
-    Accent = Color3.fromHex("#00FFBF"),       -- xanh ngọc tươi
-    Dialog = Color3.fromHex("#0E1A1E"),       -- nền hộp thoại đậm, hơi ánh xanh
-    Outline = Color3.fromHex("#00FFE0"),      -- viền sáng cyan
-    Text = Color3.fromHex("#EFFFFF"),         -- chữ trắng pha xanh nhẹ
+    Accent = Color3.fromHex("#00fff7"),       -- xanh ngọc tươi
+    Dialog = Color3.fromHex("#31ff00"),       -- nền hộp thoại đậm, hơi ánh xanh
+    Outline = Color3.fromHex("#00fff7"),      -- viền sáng cyan
+    Text = Color3.fromHex("#31ff00"),         -- chữ trắng pha xanh nhẹ
     Placeholder = Color3.fromHex("#A0FFD9"),  -- text phụ sáng
-    Background = Color3.fromHex("#08161A"),   -- nền chính xanh đen
-    Button = Color3.fromHex("#00D5FF"),       -- màu nút / toggle sáng
-    Icon = Color3.fromHex("#00FFAA"),         -- màu icon tươi xanh lá ngọc
+    Background = Color3.fromHex("#31ff00"),   -- nền chính xanh đen
+    Button = Color3.fromHex("#00fff7"),       -- màu nút / toggle sáng
+    Icon = Color3.fromHex("#31ff00"),         -- màu icon tươi xanh lá ngọc
 
     -- ⚡ Hiệu ứng chuyển sắc (tuỳ chọn)
     Gradient = {
