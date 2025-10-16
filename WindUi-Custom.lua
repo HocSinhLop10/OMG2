@@ -2901,24 +2901,24 @@ Icon=Color3.fromHex"#a1a1aa"
 SLKGAMING = {
     Name = "SLKGAMING",
 
-    -- 🔷 Màu chính & phụ
-    Accent = Color3.fromHex("#00FFA3"),       -- Xanh lá ánh cyan (hiệu ứng sáng nổi bật)
-    Dialog = Color3.fromHex("#0B1220"),       -- Nền hộp thoại (xanh đậm hơi tím than)
-    Outline = Color3.fromHex("#00E6B8"),      -- Viền mỏng ánh xanh ngọc
-    Text = Color3.fromHex("#EFFFFF"),         -- Chữ trắng xanh ngà
-    Placeholder = Color3.fromHex("#66FFCC"),  -- Text phụ mờ
-    Background = Color3.fromHex("#071019"),   -- Nền tổng thể (xanh đậm pha xám)
-    Button = Color3.fromHex("#00C8FF"),       -- Nút / tab sáng (xanh lơ)
-    Icon = Color3.fromHex("#00FFAF"),         -- Icon năng lượng (xanh lá pha ngọc)
+    -- 🌈 Xanh lá – Xanh lơ sáng (năng lượng)
+    Accent = Color3.fromHex("#00FFBF"),       -- xanh ngọc tươi
+    Dialog = Color3.fromHex("#0E1A1E"),       -- nền hộp thoại đậm, hơi ánh xanh
+    Outline = Color3.fromHex("#00FFE0"),      -- viền sáng cyan
+    Text = Color3.fromHex("#EFFFFF"),         -- chữ trắng pha xanh nhẹ
+    Placeholder = Color3.fromHex("#A0FFD9"),  -- text phụ sáng
+    Background = Color3.fromHex("#08161A"),   -- nền chính xanh đen
+    Button = Color3.fromHex("#00D5FF"),       -- màu nút / toggle sáng
+    Icon = Color3.fromHex("#00FFAA"),         -- màu icon tươi xanh lá ngọc
 
-    -- 🌈 (Tuỳ chọn) Gradient kiểu năng lượng chạy viền
+    -- ⚡ Hiệu ứng chuyển sắc (tuỳ chọn)
     Gradient = {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 120)),  -- xanh lá tươi
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 210, 255))   -- xanh lơ
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 120)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 210, 255))
         }),
         Transparency = NumberSequence.new(0),
-        Rotation = 45
+        Rotation = 90
     }
 },
 Light={
@@ -11444,6 +11444,28 @@ end
 local aA=av(at)
 
 ac.Transparent=at.Transparent
+ac.Window=aA
+
+if at.Acrylic then
+an.init()
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+return aA
+end
+
+return acrent=at.Transparent
 ac.Window=aA
 
 if at.Acrylic then
