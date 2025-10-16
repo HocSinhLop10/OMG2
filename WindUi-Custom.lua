@@ -2903,13 +2903,13 @@ SLKGAMING = {
 
     -- 🔷 Màu chính & phụ
     Accent = Color3.fromHex("#27be18"),       -- Neon cyan sáng, làm tông chủ đạo
-    Dialog = Color3.fromHex("#074c05"),       -- Nền hộp thoại đậm, ánh xanh lạnh
+    Dialog = Color3.fromHex("#054c43"),       -- Nền hộp thoại đậm, ánh xanh lạnh
     Outline = Color3.fromHex("#d2fecd"),      -- Viền sáng cyan
-    Text = Color3.fromHex("#f4fdf2"),         -- Chữ trắng ánh xanh nhẹ
+    Text = Color3.fromHex("#f2fdfd"),         -- Chữ trắng ánh xanh nhẹ
     Placeholder = Color3.fromHex("#8dd67a"),  -- Text phụ cyan mờ
-    Background = Color3.fromHex("#081f03"),   -- Nền tổng thể xanh đen pha lam
+    Background = Color3.fromHex("#031f1b"),   -- Nền tổng thể xanh đen pha lam
     Button = Color3.fromHex("#2ae11d"),       -- Nút / tab sáng hơn nền
-    Icon = Color3.fromHex("#8dfb71"),         -- Icon xanh ngọc sáng nổi bật
+    Icon = Color3.fromHex("#71fbf5"),         -- Icon xanh ngọc sáng nổi bật
 
     -- 🌈 Hiệu ứng gradient năng lượng (cyan ↔ ngọc)
     Gradient = {
