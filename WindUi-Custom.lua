@@ -2902,14 +2902,14 @@ SLKGAMING = {
     Name = "SLKGAMING",
 
     -- 🔷 Màu chính & phụ
-    Accent = Color3.fromHex("#00FFF7"),       -- Neon cyan sáng, làm tông chủ đạo
-    Dialog = Color3.fromHex("#0A1F21"),       -- Nền hộp thoại đậm, ánh xanh lạnh
-    Outline = Color3.fromHex("#00FFF7"),      -- Viền sáng cyan
-    Text = Color3.fromHex("#E8FFFF"),         -- Chữ trắng ánh xanh nhẹ
-    Placeholder = Color3.fromHex("#7AFFF2"),  -- Text phụ cyan mờ
-    Background = Color3.fromHex("#04191B"),   -- Nền tổng thể xanh đen pha lam
-    Button = Color3.fromHex("#00E6D3"),       -- Nút / tab sáng hơn nền
-    Icon = Color3.fromHex("#00FFC6"),         -- Icon xanh ngọc sáng nổi bật
+    Accent = Color3.fromHex("#27be18"),       -- Neon cyan sáng, làm tông chủ đạo
+    Dialog = Color3.fromHex("#074c05"),       -- Nền hộp thoại đậm, ánh xanh lạnh
+    Outline = Color3.fromHex("#d2fecd"),      -- Viền sáng cyan
+    Text = Color3.fromHex("#f4fdf2"),         -- Chữ trắng ánh xanh nhẹ
+    Placeholder = Color3.fromHex("#8dd67a"),  -- Text phụ cyan mờ
+    Background = Color3.fromHex("#081f03"),   -- Nền tổng thể xanh đen pha lam
+    Button = Color3.fromHex("#2ae11d"),       -- Nút / tab sáng hơn nền
+    Icon = Color3.fromHex("#8dfb71"),         -- Icon xanh ngọc sáng nổi bật
 
     -- 🌈 Hiệu ứng gradient năng lượng (cyan ↔ ngọc)
     Gradient = {
