@@ -20,7 +20,7 @@ local v16 = {
     ITM = v15:AddTab({ Title = "Farm Other" }),
     Setting = v15:AddTab({ Title = "Kiểu Cày" }),
     Status = v15:AddTab({ Title = "Trạng Thái" }),
-    Stats = v15:AddTab({ Title = "Chỉ Số" }),
+    Stats = v15:AddTab({ Title = "Thông Số" }),
     Player = v15:AddTab({ Title = "Người Chơi" }),
     Teleport = v15:AddTab({ Title = "Dịch Chuyển" }),
     Visual = v15:AddTab({ Title = "Giao Diện" }),
