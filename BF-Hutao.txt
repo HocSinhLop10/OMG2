@@ -6545,6 +6545,166 @@ spawn(function()
     end
 end);
 local v56 = v16.Player:AddSection("Other");
+
+------------------------------------------------------------
+-- ⚡ Fast Attack Toggle (Fluent UI Style)
+------------------------------------------------------------
+
+local vFastAttack = v16.Player:AddToggle("ToggleFastAttack", {
+    Title = "Đánh Cực Nhanh",
+    Description = "",
+    Default = getgenv().FastAttack or false,
+    Callback = function(Value)
+        getgenv().FastAttack = Value
+
+        if Value then
+            -- ✅ Kích hoạt Fast Attack
+            local _ENV = (getgenv or getrenv or getfenv)()
+
+            local function SafeWaitForChild(parent, childName)
+                local success, result = pcall(function()
+                    return parent:WaitForChild(childName)
+                end)
+                if not success or not result then
+                    warn("Không tìm thấy: " .. childName)
+                end
+                return result
+            end
+
+            local function WaitChilds(path, ...)
+                local last = path
+                for _, child in {...} do
+                    last = last:FindFirstChild(child) or SafeWaitForChild(last, child)
+                    if not last then break end
+                end
+                return last
+            end
+
+            -- ⚙️ Services
+            local VirtualInputManager = game:GetService("VirtualInputManager")
+            local CollectionService = game:GetService("CollectionService")
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local TeleportService = game:GetService("TeleportService")
+            local RunService = game:GetService("RunService")
+            local Players = game:GetService("Players")
+            local Player = Players.LocalPlayer
+
+            if not Player then
+                warn("Không tìm thấy người chơi.")
+                return
+            end
+
+            local Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
+            if not Remotes then return end
+
+            local Validator = SafeWaitForChild(Remotes, "Validator")
+            local CommF = SafeWaitForChild(Remotes, "CommF_")
+            local CommE = SafeWaitForChild(Remotes, "CommE")
+
+            local ChestModels = SafeWaitForChild(workspace, "ChestModels")
+            local WorldOrigin = SafeWaitForChild(workspace, "_WorldOrigin")
+            local Characters = SafeWaitForChild(workspace, "Characters")
+            local Enemies = SafeWaitForChild(workspace, "Enemies")
+            local Map = SafeWaitForChild(workspace, "Map")
+
+            local EnemySpawns = SafeWaitForChild(WorldOrigin, "EnemySpawns")
+            local Locations = SafeWaitForChild(WorldOrigin, "Locations")
+
+            local RenderStepped = RunService.RenderStepped
+            local Heartbeat = RunService.Heartbeat
+            local Stepped = RunService.Stepped
+
+            local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
+            local Net = SafeWaitForChild(Modules, "Net")
+
+            local Settings = {
+                AutoClick = true,
+                ClickDelay = 0,
+            }
+
+            local Module = {}
+
+            Module.FastAttack = (function()
+                if _ENV.rz_FastAttack then
+                    return _ENV.rz_FastAttack
+                end
+
+                local FastAttack = {
+                    Distance = 100,
+                    attackMobs = true,
+                    attackPlayers = true,
+                    Equipped = nil
+                }
+
+                local RegisterAttack = SafeWaitForChild(Net, "RE/RegisterAttack")
+                local RegisterHit = SafeWaitForChild(Net, "RE/RegisterHit")
+
+                local function IsAlive(character)
+                    return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
+                end
+
+                local function ProcessEnemies(OthersEnemies, Folder)
+                    local BasePart = nil
+                    for _, Enemy in Folder:GetChildren() do
+                        local Head = Enemy:FindFirstChild("Head")
+                        if Head and IsAlive(Enemy) and Player:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
+                            if Enemy ~= Player.Character then
+                                table.insert(OthersEnemies, { Enemy, Head })
+                                BasePart = Head
+                            end
+                        end
+                    end
+                    return BasePart
+                end
+
+                function FastAttack:Attack(BasePart, OthersEnemies)
+                    if not BasePart or #OthersEnemies == 0 then return end
+                    RegisterAttack:FireServer(Settings.ClickDelay or 0)
+                    RegisterHit:FireServer(BasePart, OthersEnemies)
+                end
+
+                function FastAttack:AttackNearest()
+                    local OthersEnemies = {}
+                    local Part1 = ProcessEnemies(OthersEnemies, Enemies)
+                    local Part2 = ProcessEnemies(OthersEnemies, Characters)
+                    if #OthersEnemies > 0 then
+                        self:Attack(Part1 or Part2, OthersEnemies)
+                    else
+                        task.wait(0)
+                    end
+                end
+
+                function FastAttack:BladeHits()
+                    local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
+                    if Equipped and Equipped.ToolTip ~= "Gun" then
+                        self:AttackNearest()
+                    else
+                        task.wait(0)
+                    end
+                end
+
+                task.spawn(function()
+                    while task.wait(Settings.ClickDelay) do
+                        if Settings.AutoClick and getgenv().FastAttack then
+                            FastAttack:BladeHits()
+                        elseif not getgenv().FastAttack then
+                            break
+                        end
+                    end
+                end)
+
+                _ENV.rz_FastAttack = FastAttack
+                return FastAttack
+            end)()
+
+        else
+            -- ❌ Tắt Fast Attack
+            getgenv().FastAttack = false
+            warn("Fast Attack đã tắt!")
+        end
+    end
+})
+
 local v115 = v16.Player:AddToggle("ToggleNoClip", {
     Title = "Đi Xuyên Tường",
     Description = "",
@@ -6607,6 +6767,99 @@ spawn(function()
         end
     end);
 end);
+
+------------------------------------------------------------
+-- ⚙️ Infinite Energy (Fluent UI Style)
+------------------------------------------------------------
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local originalstam = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Energy") and LocalPlayer.Character.Energy.Value or 0
+getgenv().InfiniteEnergy = getgenv().InfiniteEnergy or false
+
+------------------------------------------------------------
+-- ⚡ Hàm vô hạn năng lượng
+------------------------------------------------------------
+local function infinitestam()
+	if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Energy") then return end
+	LocalPlayer.Character.Energy.Changed:Connect(function()
+		if getgenv().InfiniteEnergy then
+			LocalPlayer.Character.Energy.Value = originalstam
+		end
+	end)
+end
+
+------------------------------------------------------------
+-- ⏳ Theo dõi liên tục
+------------------------------------------------------------
+task.spawn(function()
+	pcall(function()
+		while task.wait(0.1) do
+			if getgenv().InfiniteEnergy and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Energy") then
+				originalstam = LocalPlayer.Character.Energy.Value
+				infinitestam()
+			end
+		end
+	end)
+end)
+
+------------------------------------------------------------
+-- 🔋 Nút bật/tắt Infinite Energy (Fluent)
+------------------------------------------------------------
+local vInfEnergy = v16.Player:AddToggle("ToggleInfEnergy", {
+    Title = "Vô Hạn Energy",
+    Description = "",
+    Default = getgenv().InfiniteEnergy or false,
+    Callback = function(Value)
+        getgenv().InfiniteEnergy = Value
+        if Value then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Energy") then
+                originalstam = LocalPlayer.Character.Energy.Value
+                infinitestam()
+            end
+        end
+    end
+})
+
+
+------------------------------------------------------------
+-- ⚡ Nút bật/tắt Infinite Soru (Fluent UI Style)
+------------------------------------------------------------
+
+local vInfSoru = v16.Player:AddToggle("ToggleInfSoru", {
+    Title = "Vô Hạn Soru",
+    Description = "",
+    Default = getgenv().InfSoru or false,
+    Callback = function(Value)
+        getgenv().InfSoru = Value
+
+        if Value then
+            task.spawn(function()
+                while getgenv().InfSoru do
+                    pcall(function()
+                        local player = game:GetService("Players").LocalPlayer
+                        local char = player.Character
+                        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+                        if char:FindFirstChild("Soru") then
+                            for _, v in next, getgc() do
+                                if typeof(v) == "function" and getfenv(v).script == char.Soru then
+                                    for _, upv in next, getupvalues(v) do
+                                        if typeof(upv) == "table" and upv.LastUse then
+                                            upv.LastUse = 0
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end
+})
+
 local v118 = v16.Teleport:AddSection("Sea");
 local v119 = v16.Teleport:AddToggle("ToggleAutoSea2", {
     Title = "Tự Mở Sea 2",
